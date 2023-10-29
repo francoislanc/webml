@@ -1,0 +1,45 @@
+[package]
+name = "webml-rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
+candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
+candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
+num-traits = "0.2.15"
+tokenizers = { version = "0.13.4", default-features = false, features = ["unstable_wasm"] }
+
+# App crates.
+anyhow = { version = "1", features = ["backtrace"] }
+log = "0.4"
+rand = "0.8.5"
+serde = { version = "1.0.171", features = ["derive"] }
+serde_json = "1.0.99"
+wav = "1.0.0"
+safetensors = "0.3.1"
+
+# Wasm specific crates.
+getrandom = { version = "0.2", features = ["js"] }
+wasm-bindgen = "0.2.87"
+js-sys = "0.3.64"
+
+[dependencies.web-sys]
+version = "0.3.64"
+features = [
+  'console',
+  'Blob',
+  'Document',
+  'Element',
+  'HtmlElement',
+  'Node',
+  'Window',
+  'Request',
+  'RequestCache',
+  'RequestInit',
+  'RequestMode',
+  'Response',
+  'Performance',
+]
