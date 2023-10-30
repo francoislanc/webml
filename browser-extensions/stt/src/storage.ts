@@ -1,5 +1,20 @@
 import { writable } from 'svelte/store';
 
+type IStorage = {
+    count: number;
+};
+
+const defaultStorage: IStorage = {
+    count: 0,
+};
+
+export const storage = {
+    get: (): Promise<IStorage> =>
+        chrome.storage.sync.get(defaultStorage) as Promise<IStorage>,
+    set: (value: IStorage): Promise<void> => chrome.storage.sync.set(value),
+};
+
+
 /* Default store value */
 let isRecording = "false";
 
@@ -11,13 +26,13 @@ if (typeof localStorage !== `undefined`) {
 }
 
 /* Set store to default value or localStorage value */
-const store = writable(isRecording);
+const isRecordingStore = writable(isRecording);
 
 /* Export store */
-export default store;
+export default isRecordingStore;
 
 /* Listen for changes to the store, and update localStorage with the most recent value */
-store.subscribe((newValue) => {
+isRecordingStore.subscribe((newValue) => {
     if (typeof localStorage !== `undefined`) {
         localStorage.setItem(`isRecording`, newValue);
     }

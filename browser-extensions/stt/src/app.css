@@ -1,9 +1,0 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-html
-{
-    width: 500px; /* max: 1000px */
-    height: 500px; /* max: 750px */
-}
