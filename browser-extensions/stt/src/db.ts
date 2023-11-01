@@ -11,6 +11,7 @@ export enum Status {
 export interface AppAudio {
   id?: number;
   audio?: ArrayBuffer;
+  tabTitle: string;
   transcription: string;
   status: Status;
 }
@@ -22,7 +23,7 @@ export class AppDexie extends Dexie {
   constructor() {
     super('stt-db');
     this.version(1).stores({
-      audios: '++id, audio, transcription, status', // Primary key and indexed props
+      audios: '++id, audio, tabTitle, transcription, status', // Primary key and indexed props
     });
   }
 }

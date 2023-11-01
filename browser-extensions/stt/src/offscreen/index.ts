@@ -12,11 +12,12 @@ function blobToBase64(blob: Blob) {
     });
 }
 
-async function createEmptyAudio() {
+async function createEmptyAudio(tabTitle: string) {
     try {
         // Add the new transcription!
         const id = await db.audios.add({
             transcription: "",
+            tabTitle: tabTitle,
             status: Status.recording
         });
         return id;
@@ -36,11 +37,11 @@ async function updateAudio(id: string, content: ArrayBuffer) {
 
 function render() {
     chrome.runtime.onMessage.addListener(async (message) => {
-        console.log(message);
         if (message.target === "offscreen") {
             switch (message.type) {
                 case "start-recording":
-                    startRecording(message.data);
+                    const {streamId, tabTitle} = message.data
+                    startRecording(streamId, tabTitle);
                     break;
                 case "stop-recording":
                     stopRecording();
@@ -54,7 +55,7 @@ function render() {
     let recorder: MediaRecorder | null = null;
     let data: BlobPart[] = [];
     let recordingId: string | null = null;
-    async function startRecording(streamId: string) {
+    async function startRecording(streamId: string, tabTitle: string) {
 
         if (recorder?.state === "recording") {
             throw new Error(
@@ -107,14 +108,10 @@ function render() {
             const audioContext = new AudioContext({ sampleRate: 16000 });
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
             let wavBlob = bufferToWAVE(audioBuffer)
-            // const wavBlob = await getWaveBlob(blob, false, {sampleRate: 16000});
             const wavArrayBuffer = await wavBlob.arrayBuffer()
             if (recordingId) {
                 await updateAudio(recordingId, wavArrayBuffer)
             }
-            console.log("in offscreen")
-            console.log(wavBlob)
-            const base64 = await blobToBase64(wavBlob);
             // let url = URL.createObjectURL(wavBlob)
             // window.open(url, "_blank");
 
@@ -128,7 +125,7 @@ function render() {
             data = [];
         };
         recorder.start();
-        recordingId = await createEmptyAudio();
+        recordingId = await createEmptyAudio(tabTitle);
 
         // Record the current state in the URL. This provides a very low-bandwidth
         // way of communicating with the service worker (the service worker can check

@@ -38,48 +38,51 @@ async function fetchArrayBuffer(url: string) {
     return new Uint8Array(await res.arrayBuffer());
 }
 
+async function initDecoder() {
+    console.log("downloading models");
+    let weightsArrayU8, tokenizerArrayU8, mel_filtersArrayU8, configArrayU8;
+    [
+        weightsArrayU8,
+        tokenizerArrayU8,
+        mel_filtersArrayU8,
+        configArrayU8,
+    ] = await Promise.all([
+        fetchArrayBuffer(modelURL),
+        fetchArrayBuffer(tokenizerURL),
+        fetchArrayBuffer(mel_filtersURL),
+        fetchArrayBuffer(configURL),
+    ]);
+    console.log("downloading done")
 
-let weightsArrayU8, tokenizerArrayU8, mel_filtersArrayU8, configArrayU8;
+    let quantized = false;
+    if (modelID.includes("quantized")) {
+        quantized = true;
+    }
+    let is_multilingual = false;
+    if (modelID.includes("multilingual")) {
+        is_multilingual = true;
+    }
+    let timestamps = true;
+    let decoder = new Decoder(
+        weightsArrayU8,
+        tokenizerArrayU8,
+        mel_filtersArrayU8,
+        configArrayU8,
+        quantized,
+        is_multilingual,
+        timestamps,
+        undefined,
+        undefined,
+    );
+    return decoder;
+}
+
 let decoder: Decoder | undefined = undefined;
 chrome.runtime.onInstalled.addListener(() => {
-    init().then(console.log);
 
     (async () => {
-        console.log("downloading models");
-        [
-            weightsArrayU8,
-            tokenizerArrayU8,
-            mel_filtersArrayU8,
-            configArrayU8,
-        ] = await Promise.all([
-            fetchArrayBuffer(modelURL),
-            fetchArrayBuffer(tokenizerURL),
-            fetchArrayBuffer(mel_filtersURL),
-            fetchArrayBuffer(configURL),
-        ]);
-        console.log(weightsArrayU8)
-        console.log("downloading done")
-
-        let quantized = false;
-        if (modelID.includes("quantized")) {
-            quantized = true;
-        }
-        let is_multilingual = false;
-        if (modelID.includes("multilingual")) {
-            is_multilingual = true;
-        }
-        let timestamps = true;
-        decoder = new Decoder(
-            weightsArrayU8,
-            tokenizerArrayU8,
-            mel_filtersArrayU8,
-            configArrayU8,
-            quantized,
-            is_multilingual,
-            timestamps,
-            undefined,
-            undefined,
-        );
+        await init()
+        decoder = await initDecoder();
     })();
 
     return true;
@@ -117,14 +120,15 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             const audioToTranscribe = await db.audios.get(audioId);
             if (audioToTranscribe && audioToTranscribe.audio) {
                 const audioArrayU8 = new Uint8Array(audioToTranscribe.audio);
+                if (decoder) {
 
-                /*const response = await fetch(request.data);
-                const blob = await response.blob();
-                console.log("in background")
-                console.log(blob)
-                const buffer = await blob.arrayBuffer();
-                const audioArrayU8 = new Uint8Array(buffer);*/
-                console.log("decoding")
+                } else {
+                    // TODO TMP HACK TO FIX DECODER NULL
+                    console.log("HACK : REDO INIT")
+                    await init()
+                    decoder = await initDecoder();
+                }
+
                 if (decoder) {
                     const segments = decoder.decode(audioArrayU8);
                     console.log(segments)
@@ -139,21 +143,6 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             }
         })();
         sendResponse({ responseCode: "nice", target: "offscreen" })
-
-        // console.log("blob")
-        // const blob = new Blob([blobText]);
-        // console.log("in background => len blobText", blobText.length);
-
-        // console.log("after sent");
-        // console.log(blob);
-
-        // (async () => {
-
-        //     const buffer = await blob.arrayBuffer();
-        //     const audioArrayU8 = new Uint8Array(buffer);
-        //     const segments = decoder.decode(audioArrayU8);
-        //     console.log(segments)
-        //   })();
     }
     return true;
 });
@@ -166,7 +155,6 @@ async function setupOffscreen() {
     let clientList = await clients.matchAll();
 
     for (const client of clientList) {
-        console.log(client.url.split('#')[0])
         if (client.url.split('#')[0].endsWith("offscreen.html")) {
             exist = true;
             break;
@@ -211,13 +199,12 @@ const handleRecording = async (sendResponse: (response?: any) => void) => {
             recording = false;
             // chrome.action.setIcon({ path: 'icons/not-recording.png' });
         } else {
-            console.log("current tab")
-            console.log(tab);
+            // console.log(tab);
             // Get a MediaStream for the active tab.
             chrome.tabCapture.getMediaStreamId({
                 targetTabId: tab.id
             }, (streamId) => {
-                sendMessageToOffscreenDocument({ type: 'start-recording', target: 'offscreen', data: streamId })
+                sendMessageToOffscreenDocument({ type: 'start-recording', target: 'offscreen', data: {"streamId": streamId, "tabTitle": tab.title }})
                 sendResponse({ responseCode: "start-recording", target: "popup" })
                 recording = true;
             });
