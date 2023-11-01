@@ -23,5 +23,8 @@
         "tslib": "2.6.2",
         "typescript": "5.2.2",
         "vite": "4.2.3"
+    },
+    "dependencies": {
+        "dexie": "^4.0.1-beta.1"
     }
 }

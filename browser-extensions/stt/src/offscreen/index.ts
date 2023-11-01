@@ -1,4 +1,5 @@
-import { getWaveBlob } from "./wavBlobUtils";
+import { bufferToWAVE } from "./wavUtils";
+import { db } from "../db";
 
 // Options
 // https://developer.chrome.com/docs/extensions/mv3/options/
@@ -11,6 +12,20 @@ function blobToBase64(blob) {
     });
 }
 
+async function addAudio(content: ArrayBuffer) {
+    try {
+        // Add the new transcription!
+        const id = await db.audios.add({
+            transcription: "Not transcribed yet",
+            audio: content,
+            status: "not_transcribed"
+        });
+        return id;
+    } catch (error) {
+        console.log(`Failed to add : ${error}`);
+    }
+}
+
 function download(blob) {
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -18,11 +33,6 @@ function download(blob) {
     anchor.download = "audio.wav";
     anchor.click();
 }
-const log = async (...args: any[]) => chrome.runtime.sendMessage({
-    target: 'background',
-    type: 'log',
-    data: args,
-});
 
 function render() {
     chrome.runtime.onMessage.addListener(async (message) => {
@@ -52,11 +62,11 @@ function render() {
             );
         }
 
-        const media = await navigator.mediaDevices.getUserMedia({
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 mandatory: {
                     chromeMediaSource: "tab",
-                    chromeMediaSourceId: streamId,
+                    chromeMediaSourceId: streamId
                 },
             },
             /*video: {
@@ -67,30 +77,48 @@ function render() {
             },*/
         });
 
-        // Continue to play the captured audio to the user.
-        const output = new AudioContext();
-        const source = output.createMediaStreamSource(media);
-        source.connect(output.destination);
+        // const audioContext = new AudioContext({
+        //     sampleRate: 16000
+        // });
+        // const mediaStreamSource = audioContext.createMediaStreamSource(mediaStream)
+        // const mediaStreamDestination = audioContext.createMediaStreamDestination()
+        // mediaStreamDestination.channelCount = 1
+        // // Continue to play the captured audio to the user.
+        // mediaStreamSource.connect(audioContext.destination)
+
+        // // Continue to play the captured audio to the user.
+        const audioCtx  = new AudioContext();
+        const source = audioCtx .createMediaStreamSource(mediaStream);
+        
+        source.connect(audioCtx .destination);
 
         // Start recording.
-        recorder = new MediaRecorder(media, { mimeType: 'audio/webm' });
-        recorder.ondataavailable = (event) => data.push(event.data);
+        recorder = new MediaRecorder(mediaStream, {
+            mimeType: 'audio/webm;codecs=pcm',
+        });
+        recorder.ondataavailable = async (event) => {
+            data.push(event.data);
+        };
         recorder.onstop = async () => {
-            const blob = new Blob(data, { type: "audio/webm" });
+            const blob = new Blob(data, { type: "audio/webm;codecs=pcm" });
+                        
+            const arrayBuffer = await blob.arrayBuffer();
+            const audioContext = new AudioContext({sampleRate: 16000});
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+            let wavBlob = bufferToWAVE(audioBuffer)
+            // const wavBlob = await getWaveBlob(blob, false, {sampleRate: 16000});
+            const wavArrayBuffer = await wavBlob.arrayBuffer()
+            let id = await addAudio(wavArrayBuffer)
+            console.log("in offscreen")
+            console.log(wavBlob)
+            const base64 = await blobToBase64(wavBlob);
+            // let url = URL.createObjectURL(wavBlob)
+            // window.open(url, "_blank");
 
-            // convert it into wav 
-            log("before conversion");
-            const wavBlob = await getWaveBlob(blob, false);
-            log("after conversion")
-            // log(wavBlob);
-
-            let url = URL.createObjectURL(wavBlob)
-            window.open(url, "_blank");
-            let b64 = await blobToBase64(wavBlob)
             chrome.runtime.sendMessage({
                 target: 'background',
                 type: 'audioWav',
-                data: { b64: b64 },
+                data: id,
             });
             // Clear state ready for next recording
             recorder = undefined;

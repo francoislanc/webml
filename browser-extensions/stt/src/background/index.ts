@@ -1,25 +1,22 @@
 import init, { Decoder } from "../webml/m";
 import { storage } from "../storage";
+import { db } from "../db";
 
-
-const tiny_quantized_multilingual_q80 = {
+const tiny_quantized_q80 = {
     base_url: "https://huggingface.co/lmz/candle-whisper/resolve/main/",
-    model: "model-tiny-q80.gguf",
-    tokenizer: "tokenizer-tiny.json",
-    config: "config-tiny.json",
+    model: "model-tiny-en-q80.gguf",
+    tokenizer: "tokenizer-tiny-en.json",
+    config: "config-tiny-en.json",
 };
-const modelID = "tiny_quantized_multilingual_q80";
-const model = tiny_quantized_multilingual_q80.model;
-const modelURL = tiny_quantized_multilingual_q80.base_url + model;
-const tokenizerURL =
-    tiny_quantized_multilingual_q80.base_url +
-    tiny_quantized_multilingual_q80.tokenizer;
-const configURL =
-    tiny_quantized_multilingual_q80.base_url +
-    tiny_quantized_multilingual_q80.config;
+const modelID = "tiny_quantized_q80";
+const model = tiny_quantized_q80.model;
+const modelURL = tiny_quantized_q80.base_url + model;
+const tokenizerURL = tiny_quantized_q80.base_url + tiny_quantized_q80.tokenizer;
+const configURL = tiny_quantized_q80.base_url + tiny_quantized_q80.config;
 
-let audioURL =
-    "https://huggingface.co/datasets/Narsil/candle-examples/resolve/main/samples_jfk.wav";
+/*let audioURL =
+    "https://huggingface.co/datasets/Narsil/candle-examples/resolve/main/samples_jfk.wav";*/
+let audioURL = "http://localhost:8080/test.wav"
 let mel_filtersURL =
     " https://huggingface.co/spaces/lmz/candle-whisper/resolve/main/mel_filters.safetensors";
 
@@ -43,7 +40,7 @@ async function fetchArrayBuffer(url) {
 
 
 let weightsArrayU8, tokenizerArrayU8, mel_filtersArrayU8, configArrayU8;
-let decoder;
+let decoder: Decoder;
 chrome.runtime.onInstalled.addListener(() => {
     storage.get().then(console.log);
     init().then(console.log);
@@ -84,11 +81,6 @@ chrome.runtime.onInstalled.addListener(() => {
             null,
             null,
         );
-
-        const audioArrayU8 = await fetchArrayBuffer(audioURL);
-        console.log("decoding")
-        const segments = decoder.decode(audioArrayU8);
-        console.log(segments)
     })();
 
     return true;
@@ -104,10 +96,55 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (request.cmd === "toggleRecording") {
         // https://stackoverflow.com/questions/48107746/chrome-extension-message-not-sending-response-undefined
         handleRecording(sendResponse);
-    } else if (request.type === "audioWav") {
-        console.log(request.data.b64)
-        // run transcription
+    } else if (request.cmd === "transcribeTestFile") {
 
+        (async () => {
+            const res = await fetch(audioURL);
+            const audioArrayU8 = new Uint8Array(await res.arrayBuffer());
+            console.log("decoding")
+            const segments = decoder.decode(audioArrayU8);
+            console.log(segments)
+        })();
+
+        sendResponse({ responseCode: "nice", target: "offscreen" })
+
+    } else if (request.type === "audioWav") {
+        // TODO how to desctructure one object into multiple var
+
+        (async () => {
+            let audioId = request.data;
+            const audioToTranscribe = await db.audios.get(audioId);
+            const audioArrayU8 = new Uint8Array(audioToTranscribe?.audio);
+
+            /*const response = await fetch(request.data);
+            const blob = await response.blob();
+            console.log("in background")
+            console.log(blob)
+            const buffer = await blob.arrayBuffer();
+            const audioArrayU8 = new Uint8Array(buffer);*/
+            console.log("decoding")
+            const segments = decoder.decode(audioArrayU8);
+            console.log(segments)
+            const jsonSegments = JSON.parse(segments)
+
+            await db.audios.update(audioId, {transcription: jsonSegments[0]["dr"]["text"]})
+        })();
+        sendResponse({ responseCode: "nice", target: "offscreen" })
+
+        // console.log("blob")
+        // const blob = new Blob([blobText]);
+        // console.log("in background => len blobText", blobText.length);
+
+        // console.log("after sent");
+        // console.log(blob);
+
+        // (async () => {
+
+        //     const buffer = await blob.arrayBuffer();
+        //     const audioArrayU8 = new Uint8Array(buffer);
+        //     const segments = decoder.decode(audioArrayU8);
+        //     console.log(segments)
+        //   })();
     }
     return true;
 });
@@ -143,7 +180,7 @@ async function setupOffscreen() {
 
 async function sendMessageToOffscreenDocument(data) {
     await setupOffscreen();
-    chrome.runtime.sendMessage(data);
+    await chrome.runtime.sendMessage(data);
 }
 
 // TODO : replace if possible with only activeTab permission
@@ -160,7 +197,7 @@ const handleRecording = async (sendResponse) => {
     if (tab) {
         if (recording) {
             sendMessageToOffscreenDocument({ type: 'stop-recording', target: 'offscreen' })
-            sendResponse({ responseCode: "stop-recording" })
+            sendResponse({ responseCode: "stop-recording", target: "popup" })
             recording = false;
             // chrome.action.setIcon({ path: 'icons/not-recording.png' });
         } else {
@@ -172,11 +209,11 @@ const handleRecording = async (sendResponse) => {
             });
 
             sendMessageToOffscreenDocument({ type: 'start-recording', target: 'offscreen', data: streamId })
-            sendResponse({ responseCode: "start-recording" })
+            sendResponse({ responseCode: "start-recording", target: "popup" })
             recording = true;
         }
     } else {
         console.log("no active tab")
-        sendResponse({ responseCode: "no-activate-tab-found" })
+        sendResponse({ responseCode: "no-activate-tab-found", target: "popup" })
     }
 };
