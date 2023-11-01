@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 const noOp = () => {};
 const forEachAudioParam = (node, f, g = noOp) => {
   for (p in node) {

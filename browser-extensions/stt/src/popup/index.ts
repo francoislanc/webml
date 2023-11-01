@@ -1,5 +1,3 @@
-import Options from "../components/Options.svelte";
-import { storage } from "../storage";
 import Record from "../components/Record.svelte";
 
 // Action popup
@@ -9,15 +7,9 @@ function render() {
     const target = document.getElementById("app");
 
     if (target) {
-        storage.get().then(({ count }) => {
-            /*new Options({
-                target,
-                props: { count },
-            });*/
-            new Record({
-                target,
-                props: {},
-            });
+        return new Record({
+            target,
+            props: {},
         });
     }
 }

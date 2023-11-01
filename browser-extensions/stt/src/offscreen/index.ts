@@ -1,10 +1,10 @@
 import { bufferToWAVE } from "./wavUtils";
-import { db } from "../db";
+import { Status, db } from "../db";
 
 // Options
 // https://developer.chrome.com/docs/extensions/mv3/options/
 
-function blobToBase64(blob) {
+function blobToBase64(blob: Blob) {
     return new Promise((resolve, _) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result);
@@ -12,13 +12,12 @@ function blobToBase64(blob) {
     });
 }
 
-async function addAudio(content: ArrayBuffer) {
+async function createEmptyAudio() {
     try {
         // Add the new transcription!
         const id = await db.audios.add({
-            transcription: "Not transcribed yet",
-            audio: content,
-            status: "not_transcribed"
+            transcription: "",
+            status: Status.recording
         });
         return id;
     } catch (error) {
@@ -26,12 +25,13 @@ async function addAudio(content: ArrayBuffer) {
     }
 }
 
-function download(blob) {
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "audio.wav";
-    anchor.click();
+async function updateAudio(id: string, content: ArrayBuffer) {
+    try {
+        await db.audios.update(id, { audio: content, status: Status.transcribing })
+        return id;
+    } catch (error) {
+        console.log(`Failed to add : ${error}`);
+    }
 }
 
 function render() {
@@ -51,10 +51,10 @@ function render() {
         }
     });
 
-    let recorder;
-    let data = [];
-
-    async function startRecording(streamId) {
+    let recorder: MediaRecorder | null = null;
+    let data: BlobPart[] = [];
+    let recordingId: string | null = null;
+    async function startRecording(streamId: string) {
 
         if (recorder?.state === "recording") {
             throw new Error(
@@ -64,6 +64,7 @@ function render() {
 
         const mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
+                // @ts-ignore
                 mandatory: {
                     chromeMediaSource: "tab",
                     chromeMediaSourceId: streamId
@@ -87,10 +88,10 @@ function render() {
         // mediaStreamSource.connect(audioContext.destination)
 
         // // Continue to play the captured audio to the user.
-        const audioCtx  = new AudioContext();
-        const source = audioCtx .createMediaStreamSource(mediaStream);
-        
-        source.connect(audioCtx .destination);
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(mediaStream);
+
+        source.connect(audioCtx.destination);
 
         // Start recording.
         recorder = new MediaRecorder(mediaStream, {
@@ -101,14 +102,16 @@ function render() {
         };
         recorder.onstop = async () => {
             const blob = new Blob(data, { type: "audio/webm;codecs=pcm" });
-                        
+
             const arrayBuffer = await blob.arrayBuffer();
-            const audioContext = new AudioContext({sampleRate: 16000});
+            const audioContext = new AudioContext({ sampleRate: 16000 });
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
             let wavBlob = bufferToWAVE(audioBuffer)
             // const wavBlob = await getWaveBlob(blob, false, {sampleRate: 16000});
             const wavArrayBuffer = await wavBlob.arrayBuffer()
-            let id = await addAudio(wavArrayBuffer)
+            if (recordingId) {
+                await updateAudio(recordingId, wavArrayBuffer)
+            }
             console.log("in offscreen")
             console.log(wavBlob)
             const base64 = await blobToBase64(wavBlob);
@@ -118,13 +121,14 @@ function render() {
             chrome.runtime.sendMessage({
                 target: 'background',
                 type: 'audioWav',
-                data: id,
+                data: recordingId,
             });
             // Clear state ready for next recording
-            recorder = undefined;
+            recorder = null;
             data = [];
         };
         recorder.start();
+        recordingId = await createEmptyAudio();
 
         // Record the current state in the URL. This provides a very low-bandwidth
         // way of communicating with the service worker (the service worker can check
@@ -136,10 +140,13 @@ function render() {
     }
 
     async function stopRecording() {
-        recorder.stop();
 
-        // Stopping the tracks makes sure the recording icon in the tab is removed.
-        recorder.stream.getTracks().forEach((t) => t.stop());
+        if (recorder) {
+            recorder.stop();
+
+            // Stopping the tracks makes sure the recording icon in the tab is removed.
+            recorder.stream.getTracks().forEach((t) => t.stop());
+        }
 
         // Update current state in URL
         window.location.hash = "";

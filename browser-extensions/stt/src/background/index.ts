@@ -1,6 +1,6 @@
 import init, { Decoder } from "../webml/m";
-import { storage } from "../storage";
-import { db } from "../db";
+import { Status, db } from "../db";
+import type { AppMessage } from "../messages";
 
 const tiny_quantized_q80 = {
     base_url: "https://huggingface.co/lmz/candle-whisper/resolve/main/",
@@ -25,7 +25,7 @@ let recording = false;
 // Background service workers
 // https://developer.chrome.com/docs/extensions/mv3/service_workers/
 
-async function fetchArrayBuffer(url) {
+async function fetchArrayBuffer(url: string) {
     const cacheName = "whisper-candle-cache";
     const cache = await caches.open(cacheName);
     const cachedResponse = await cache.match(url);
@@ -40,9 +40,8 @@ async function fetchArrayBuffer(url) {
 
 
 let weightsArrayU8, tokenizerArrayU8, mel_filtersArrayU8, configArrayU8;
-let decoder: Decoder;
+let decoder: Decoder | undefined = undefined;
 chrome.runtime.onInstalled.addListener(() => {
-    storage.get().then(console.log);
     init().then(console.log);
 
     (async () => {
@@ -78,8 +77,8 @@ chrome.runtime.onInstalled.addListener(() => {
             quantized,
             is_multilingual,
             timestamps,
-            null,
-            null,
+            undefined,
+            undefined,
         );
     })();
 
@@ -102,8 +101,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             const res = await fetch(audioURL);
             const audioArrayU8 = new Uint8Array(await res.arrayBuffer());
             console.log("decoding")
-            const segments = decoder.decode(audioArrayU8);
-            console.log(segments)
+            if (decoder) {
+                const segments = decoder.decode(audioArrayU8);
+                console.log(segments)
+            }
         })();
 
         sendResponse({ responseCode: "nice", target: "offscreen" })
@@ -114,20 +115,28 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         (async () => {
             let audioId = request.data;
             const audioToTranscribe = await db.audios.get(audioId);
-            const audioArrayU8 = new Uint8Array(audioToTranscribe?.audio);
+            if (audioToTranscribe && audioToTranscribe.audio) {
+                const audioArrayU8 = new Uint8Array(audioToTranscribe.audio);
 
-            /*const response = await fetch(request.data);
-            const blob = await response.blob();
-            console.log("in background")
-            console.log(blob)
-            const buffer = await blob.arrayBuffer();
-            const audioArrayU8 = new Uint8Array(buffer);*/
-            console.log("decoding")
-            const segments = decoder.decode(audioArrayU8);
-            console.log(segments)
-            const jsonSegments = JSON.parse(segments)
+                /*const response = await fetch(request.data);
+                const blob = await response.blob();
+                console.log("in background")
+                console.log(blob)
+                const buffer = await blob.arrayBuffer();
+                const audioArrayU8 = new Uint8Array(buffer);*/
+                console.log("decoding")
+                if (decoder) {
+                    const segments = decoder.decode(audioArrayU8);
+                    console.log(segments)
+                    const jsonSegments = JSON.parse(segments)
+                    await db.audios.update(audioId, { transcription: jsonSegments[0]["dr"]["text"], status: Status.transcribed })
+                } else {
+                    console.log("DECODER IS NOT DEFINED ! NOT NORMAL")
+                    
+                    await db.audios.update(audioId, { transcription: "X", status: Status.transcription_failed })
+                }
 
-            await db.audios.update(audioId, {transcription: jsonSegments[0]["dr"]["text"]})
+            }
         })();
         sendResponse({ responseCode: "nice", target: "offscreen" })
 
@@ -150,9 +159,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 });
 
 // Clients api version
-let creating;
+let creating: Promise<void> | null;
 async function setupOffscreen() {
     let exist = false;
+    // @ts-ignore
     let clientList = await clients.matchAll();
 
     for (const client of clientList) {
@@ -169,7 +179,7 @@ async function setupOffscreen() {
         } else {
             creating = chrome.offscreen.createDocument({
                 url: "src/offscreen/offscreen.html",
-                reasons: ['CLIPBOARD'],
+                reasons: [chrome.offscreen.Reason.USER_MEDIA],
                 justification: 'reason for needing the document'
             });
             await creating;
@@ -178,7 +188,7 @@ async function setupOffscreen() {
     }
 }
 
-async function sendMessageToOffscreenDocument(data) {
+async function sendMessageToOffscreenDocument(data: AppMessage) {
     await setupOffscreen();
     await chrome.runtime.sendMessage(data);
 }
@@ -192,7 +202,7 @@ async function getCurrentTab() {
     return tab;
 }
 
-const handleRecording = async (sendResponse) => {
+const handleRecording = async (sendResponse: (response?: any) => void) => {
     const tab = await getCurrentTab()
     if (tab) {
         if (recording) {
@@ -204,13 +214,13 @@ const handleRecording = async (sendResponse) => {
             console.log("current tab")
             console.log(tab);
             // Get a MediaStream for the active tab.
-            const streamId = await chrome.tabCapture.getMediaStreamId({
+            chrome.tabCapture.getMediaStreamId({
                 targetTabId: tab.id
+            }, (streamId) => {
+                sendMessageToOffscreenDocument({ type: 'start-recording', target: 'offscreen', data: streamId })
+                sendResponse({ responseCode: "start-recording", target: "popup" })
+                recording = true;
             });
-
-            sendMessageToOffscreenDocument({ type: 'start-recording', target: 'offscreen', data: streamId })
-            sendResponse({ responseCode: "start-recording", target: "popup" })
-            recording = true;
         }
     } else {
         console.log("no active tab")

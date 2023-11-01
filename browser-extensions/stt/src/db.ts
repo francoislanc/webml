@@ -1,21 +1,28 @@
 import Dexie, { type Table } from 'dexie';
 
-export interface Audio {
+
+export enum Status {
+  recording = "recording",
+  transcribing = "transcribing",
+  transcribed = "transcribed",
+  transcription_failed = "transcription_failed"
+};
+
+export interface AppAudio {
   id?: number;
   audio?: ArrayBuffer;
   transcription: string;
-  status: string;
+  status: Status;
 }
 
+
 export class AppDexie extends Dexie {
-  // 'friends' is added by dexie when declaring the stores()
-  // We just tell the typing system this is the case
-  audios!: Table<Audio>; 
+  audios!: Table<AppAudio>; 
 
   constructor() {
     super('stt-db');
     this.version(1).stores({
-      audios: '++id, audio, transcription, status' // Primary key and indexed props
+      audios: '++id, audio, transcription, status', // Primary key and indexed props
     });
   }
 }
