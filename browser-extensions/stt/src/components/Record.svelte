@@ -2,6 +2,11 @@
     import { db } from "../db";
     import { Status } from "../db";
     import { liveQuery } from "dexie";
+    import { ProgressBar } from "@skeletonlabs/skeleton";
+    import LinkVariant from '~icons/mdi/link-variant';
+    import RecordRec from '~icons/mdi/record-rec';
+    import Microphone from '~icons/mdi/microphone';
+    import Download from '~icons/mdi/download';
 
     let transcriptions = liveQuery(() => db.audios.reverse().toArray());
     /*let transcriptions = [
@@ -46,43 +51,58 @@
 </script>
 
 <div class="container">
-    <div>
+    <div class="flex justify-around p-4">
         <button
+            type="button"
+            class="btn-icon variant-filled-primary"
             disabled={$transcriptionsInProgress}
             on:click={async () => await record()}
             >{#if $recordingsInProgess > 0}
-                <p>Stop recording</p>
+                <RecordRec style="font-size: 2em; color: red"/>
             {:else}
-                <p>Start recording</p>
-            {/if}</button
-        >
-
-        {#if $transcriptions}
-            <ul>
-                {#each $transcriptions as tr (tr.id)}
-                    <li>
-                        <b>{tr.tabTitle}</b>
-                        {#if tr.status === Status.transcribed}
-                            {@const url = objectUrl(tr.audio)}
-                            <p>{tr.transcription}</p>
-                            <audio controls>
-                                <source src={url} type="audio/wav" />
-                                Your browser does not support the audio element.
-                            </audio>
-                        {:else if tr.status === Status.transcribing}
-                            <label for="transcribing">Transcribing ...</label>
-                            <progress id="transcribing" />
-                        {:else if tr.status === Status.recording}
-                            <label for="recording">Recording ...</label>
-                            <progress />
-                        {:else if tr.status === Status.transcription_failed}
-                            <p>X</p>
-                        {/if}
-                    </li>
-                {/each}
-            </ul>
-        {/if}
+                <RecordRec style="font-size: 2em;"/>
+            {/if}
+        </button>
+        <button type="button" class="btn-icon variant-filled-primary"><Microphone /></button>
+        <button type="button" class="btn-icon variant-filled-primary"><Download /></button>
     </div>
+    <div class="flex justify-end pr-2 pb-2">
+        <a href="https://webml.io" class="chip variant-soft">
+            <span><LinkVariant /></span>
+           <span>webml.io</span>
+        </a>
+    </div>
+    {#if $transcriptions}
+        <ul class="list">
+            {#each $transcriptions as tr (tr.id)}
+                <li>
+                    <div class="flex w-full">
+                        <div class="card p-4 w-full">
+                            <b>{tr.tabTitle}</b>
+                            {#if tr.status === Status.transcribed}
+                                {@const url = objectUrl(tr.audio)}
+                                <p>{tr.transcription}</p>
+                                <audio controls>
+                                    <source src={url} type="audio/wav" />
+                                    Your browser does not support the audio element.
+                                </audio>
+                            {:else if tr.status === Status.transcribing}
+                                <label for="transcribing"
+                                    >Transcribing ...</label
+                                >
+                                <ProgressBar />
+                            {:else if tr.status === Status.recording}
+                                <label for="recording">Recording ...</label>
+                                <ProgressBar />
+                            {:else if tr.status === Status.transcription_failed}
+                                <p>X</p>
+                            {/if}
+                        </div>
+                    </div>
+                </li>
+            {/each}
+        </ul>
+    {/if}
 </div>
 
 <style>

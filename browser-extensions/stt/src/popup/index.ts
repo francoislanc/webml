@@ -1,4 +1,5 @@
 import Record from "../components/Record.svelte";
+import '../app.postcss';
 
 // Action popup
 // https://developer.chrome.com/docs/extensions/reference/action/
