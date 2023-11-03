@@ -1,4 +1,4 @@
-import Record from "../components/Record.svelte";
+import Popup from "../components/Popup.svelte";
 import '../app.postcss';
 
 // Action popup
@@ -8,7 +8,7 @@ function render() {
     const target = document.getElementById("app");
 
     if (target) {
-        return new Record({
+        return new Popup({
             target,
             props: {},
         });
