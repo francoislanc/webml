@@ -29,9 +29,9 @@ export default defineManifest(async (env) => ({
         page: "src/options/options.html",
         open_in_tab: false,
     },*/
-    side_panel: {
+    /*side_panel: {
         default_path: "src/sidepanel/sidepanel.html",
-    },
+    },*/
     action: {
         default_popup: "src/popup/popup.html",
         default_icon: {

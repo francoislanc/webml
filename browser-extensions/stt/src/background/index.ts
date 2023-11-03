@@ -78,6 +78,7 @@ async function initDecoder() {
 }
 
 let decoder: Decoder | undefined = undefined;
+// @ts-ignore
 chrome.runtime.onInstalled.addListener(() => {
 
     (async () => {
@@ -94,6 +95,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
 //   .catch((error) => console.error(error));
 
+// @ts-ignore
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (request.cmd === "toggleRecording") {
         // https://stackoverflow.com/questions/48107746/chrome-extension-message-not-sending-response-undefined
@@ -165,8 +167,10 @@ async function setupOffscreen() {
         if (creating) {
             await creating;
         } else {
+            // @ts-ignore
             creating = chrome.offscreen.createDocument({
                 url: "src/offscreen/offscreen.html",
+                // @ts-ignore
                 reasons: [chrome.offscreen.Reason.USER_MEDIA],
                 justification: 'reason for needing the document'
             });
@@ -178,6 +182,7 @@ async function setupOffscreen() {
 
 async function sendMessageToOffscreenDocument(data: AppMessage) {
     await setupOffscreen();
+    // @ts-ignore
     await chrome.runtime.sendMessage(data);
 }
 
@@ -186,6 +191,7 @@ async function sendMessageToOffscreenDocument(data: AppMessage) {
 async function getCurrentTab() {
     let queryOptions = { active: true, lastFocusedWindow: true };
     // `tab` will either be a `tabs.Tab` instance or `undefined`.
+    // @ts-ignore
     let [tab] = await chrome.tabs.query(queryOptions);
     return tab;
 }
@@ -201,9 +207,10 @@ const handleRecording = async (sendResponse: (response?: any) => void) => {
         } else {
             // console.log(tab);
             // Get a MediaStream for the active tab.
+            // @ts-ignore
             chrome.tabCapture.getMediaStreamId({
                 targetTabId: tab.id
-            }, (streamId) => {
+            }, (streamId: string) => {
                 sendMessageToOffscreenDocument({ type: 'start-recording', target: 'offscreen', data: {"streamId": streamId, "tabTitle": tab.title }})
                 sendResponse({ responseCode: "start-recording", target: "popup" })
                 recording = true;

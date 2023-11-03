@@ -43,6 +43,7 @@
     }
 
     async function record() {
+        //@ts-ignore
         const response = await chrome.runtime.sendMessage({
             cmd: "toggleRecording",
             target: "background",
