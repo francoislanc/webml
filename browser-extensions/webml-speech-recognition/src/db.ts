@@ -21,7 +21,7 @@ export class AppDexie extends Dexie {
   audios!: Table<AppAudio>; 
 
   constructor() {
-    super('on-device-transcription-db');
+    super('webml-speech-recognition-db');
     this.version(1).stores({
       audios: '++id, audio, tabTitle, transcription, status', // Primary key and indexed props
     });
