@@ -36,6 +36,7 @@ async function updateAudio(id: string, content: ArrayBuffer) {
 }
 
 function render() {
+    // @ts-ignore
     chrome.runtime.onMessage.addListener(async (message) => {
         if (message.target === "offscreen") {
             switch (message.type) {
@@ -115,6 +116,7 @@ function render() {
             // let url = URL.createObjectURL(wavBlob)
             // window.open(url, "_blank");
 
+            // @ts-ignore
             chrome.runtime.sendMessage({
                 target: 'background',
                 type: 'audioWav',

@@ -13,6 +13,7 @@
     import { exportDB } from "dexie-export-import";
     // @ts-ignore
     import download from "downloadjs";
+    import { type } from "os";
 
     let transcriptions = liveQuery(() => db.audios.reverse().toArray());
     /*let transcriptions = [
@@ -79,8 +80,53 @@
         }
     }
 
-    function onFileChangeHandler(e: Event): void {
-        console.log("file data:", e);
+    export const blobToData = (
+        blob: Blob
+    ): Promise<string | ArrayBuffer | null> => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsArrayBuffer(blob);
+        });
+    };
+
+    async function createFileAudio(title: string, data: ArrayBuffer) {
+        try {
+            // Add the new transcription!
+            const id = await db.audios.add({
+                transcription: "",
+                tabTitle: title,
+                status: Status.transcribing,
+                audio: data,
+            });
+            return id;
+        } catch (error) {
+            console.log(`Failed to add : ${error}`);
+        }
+    }
+
+    async function onFileChangeHandler(e: Event): Promise<void> {
+        if (e != null && e.target != null) {
+            let htmlInputElement = e.target as HTMLInputElement;
+            if (
+                htmlInputElement &&
+                htmlInputElement.files &&
+                htmlInputElement.files.length > 0
+            ) {
+                let file = htmlInputElement.files[0];
+                let data = await blobToData(file);
+                if (data && data instanceof ArrayBuffer) {
+                    let id = await createFileAudio(file.name, data);
+
+                    // @ts-ignore
+                    const response = await chrome.runtime.sendMessage({
+                        target: "background",
+                        type: "audioWav",
+                        data: id,
+                    });
+                }
+            }
+        }
     }
 </script>
 
@@ -146,7 +192,9 @@
                     button="btn variant-filled"
                     name="files"
                     accept="audio/wav"
-                    on:change={onFileChangeHandler}
+                    on:change={async (e) => {
+                        await onFileChangeHandler(e);
+                    }}
                     ><span>
                         <Folder />
                     </span>
@@ -174,8 +222,8 @@
                 <ul class="list space-y-4">
                     {#each $transcriptions as tr (tr.id)}
                         <li>
-                            <div class="flex">
-                                <div class="mx-4 card">
+                            <div class="flex w-full">
+                                <div class="mx-4 card w-full">
                                     <section
                                         class="flex flex-col space-y-4 p-4"
                                     >
@@ -227,14 +275,15 @@
                                             </div>
                                             <div>
                                                 {#if tr.status != Status.transcribing && tr.status != Status.recording}
-                                                <button
-                                                    type="button"
-                                                    class="btn-icon btn-icon-sm variant-soft"
-                                                    on:click={async () =>
-                                                        await deleteTranscription(
-                                                            tr.id
-                                                        )}><Delete /></button
-                                                >
+                                                    <button
+                                                        type="button"
+                                                        class="btn-icon btn-icon-sm variant-soft"
+                                                        on:click={async () =>
+                                                            await deleteTranscription(
+                                                                tr.id
+                                                            )}
+                                                        ><Delete /></button
+                                                    >
                                                 {/if}
                                             </div>
                                         </div>

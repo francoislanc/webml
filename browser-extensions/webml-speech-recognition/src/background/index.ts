@@ -119,6 +119,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
         (async () => {
             let audioId = request.data;
+            console.log(`background need to process ${audioId}`)
             const audioToTranscribe = await db.audios.get(audioId);
             if (audioToTranscribe && audioToTranscribe.audio) {
                 const audioArrayU8 = new Uint8Array(audioToTranscribe.audio);
