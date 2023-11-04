@@ -1,6 +1,6 @@
 {
-  "name": "on-device-transcription",
-  "description": "On-device transcription for your browser tab",
+  "name": "webml-speech-recognition",
+  "description": "ML-powered speech recognition in your browser.",
   "version": "1.0.0",
   "type": "module",
   "repository": {
