@@ -13,7 +13,6 @@
     import { exportDB } from "dexie-export-import";
     // @ts-ignore
     import download from "downloadjs";
-    import { type } from "os";
 
     let transcriptions = liveQuery(() => db.audios.reverse().toArray());
     /*let transcriptions = [
@@ -27,10 +26,18 @@
             status: Status.transcribed,
         }
     ];*/
-    $: recordingsInProgess = liveQuery(async () => {
+    $: tabRecordingsInProgess = liveQuery(async () => {
         const recordings = await db.audios
             .where("status")
-            .equals(Status.recording)
+            .equals(Status.tab_recording)
+            .count();
+        return recordings > 0;
+    });
+
+    $: micRecordingsInProgess = liveQuery(async () => {
+        const recordings = await db.audios
+            .where("status")
+            .equals(Status.mic_recording)
             .count();
         return recordings > 0;
     });
@@ -51,10 +58,11 @@
         return "";
     }
 
-    async function record() {
+    async function record(with_mic: boolean) {
         //@ts-ignore
         const response = await chrome.runtime.sendMessage({
             cmd: "toggleRecording",
+            data: with_mic,
             target: "background",
         });
     }
@@ -156,67 +164,76 @@
                 </div></svelte:fragment
             >
         </AppBar>
-        <div class="grid grid-cols-2 pt-2 space-y-2 justify-items-center">
-            <div>
+        <div class="flex mt-4 justify-center space-x-1">
+            {#if $tabRecordingsInProgess}
                 <button
-                    class="btn variant-filled mt-2"
-                    disabled={$transcriptionsInProgress}
-                    on:click={async () => await record()}
-                    >{#if $recordingsInProgess}
-                        <span>
-                            <GoogleChrome style="color: #84cc16" />
-                        </span>
-                        <span>From tab</span>
-                    {:else}
-                        <span>
-                            <GoogleChrome />
-                        </span>
-                        <span>From tab</span>
-                    {/if}
+                    disabled={$transcriptionsInProgress ||
+                        $micRecordingsInProgess}
+                    on:click={async () => await record(false)}
+                    class=" btn variant-filled-primary"
+                >
+                    <span>
+                        <GoogleChrome />
+                    </span>
+                    <span>From tab</span>
                 </button>
-            </div>
-            <div>
+            {:else}
                 <button
-                    class="btn variant-filled"
-                    disabled={$transcriptionsInProgress || $recordingsInProgess}
-                    on:click={async () => await record()}
-                    ><span>
-                        <LinkVariant />
-                    </span>
-                    <span>From URL</span></button
+                    class=" btn variant-soft-primary"
+                    disabled={$transcriptionsInProgress ||
+                        $micRecordingsInProgess}
+                    on:click={async () => await record(false)}
                 >
-            </div>
-            <div>
-                <FileButton
-                    disabled={$transcriptionsInProgress || $recordingsInProgess}
-                    button="btn variant-filled"
-                    name="files"
-                    accept="audio/wav"
-                    on:change={async (e) => {
-                        await onFileChangeHandler(e);
-                    }}
-                    ><span>
-                        <Folder />
+                    <span>
+                        <GoogleChrome />
                     </span>
-                    <span>From file</span></FileButton
-                >
-            </div>
-            <div>
+                    <span>From tab</span>
+                </button>
+            {/if}
+
+            <FileButton
+                disabled={$transcriptionsInProgress ||
+                    $tabRecordingsInProgess ||
+                    $micRecordingsInProgess}
+                button="btn variant-soft-primary"
+                name="files"
+                accept="audio/wav"
+                on:change={async (e) => {
+                    await onFileChangeHandler(e);
+                }}
+                ><span>
+                    <Folder />
+                </span>
+                <span>From file</span></FileButton
+            >
+
+            {#if $micRecordingsInProgess}
                 <button
-                    class="btn variant-filled"
-                    disabled={$transcriptionsInProgress || $recordingsInProgess}
-                    on:click={async () => await record()}
-                    ><span>
+                    disabled={$transcriptionsInProgress ||
+                        $tabRecordingsInProgess}
+                    class="btn variant-filled-primary"
+                    on:click={async () => await record(true)}
+                >
+                    <span>
                         <Microphone />
                     </span>
                     <span>From mic</span></button
                 >
-            </div>
+            {:else}
+                <button
+                    disabled={$transcriptionsInProgress ||
+                        $tabRecordingsInProgess}
+                    class="btn variant-soft-primary"
+                    on:click={async () => await record(true)}
+                >
+                    <span>
+                        <Microphone />
+                    </span>
+                    <span>From mic</span></button
+                >
+            {/if}
         </div>
         <hr class="opacity-50 my-4" />
-        <!--<div class="justify-center mt-4 mb-4">
-            
-        </div>-->
         <div class="overflow-y-auto">
             {#if $transcriptions}
                 <ul class="list space-y-4">
@@ -255,7 +272,7 @@
                                                 >Transcribing ...</label
                                             >
                                             <ProgressBar />
-                                        {:else if tr.status === Status.recording}
+                                        {:else if tr.status === Status.tab_recording || tr.status === Status.mic_recording}
                                             <label for="recording"
                                                 >Recording ...</label
                                             >
@@ -274,7 +291,7 @@
                                                 </p>
                                             </div>
                                             <div>
-                                                {#if tr.status != Status.transcribing && tr.status != Status.recording}
+                                                {#if tr.status != Status.transcribing && tr.status != Status.tab_recording && tr.status != Status.mic_recording}
                                                     <button
                                                         type="button"
                                                         class="btn-icon btn-icon-sm variant-soft"
@@ -300,7 +317,7 @@
 
 <style>
     .container {
-        width: 400px;
+        width: 450px;
         height: 600px;
     }
 </style>

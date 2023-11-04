@@ -2,7 +2,8 @@ import Dexie, { type Table } from 'dexie';
 
 
 export enum Status {
-  recording = "recording",
+  mic_recording = "mic_recording",
+  tab_recording = "tab_recording",
   transcribing = "transcribing",
   transcribed = "transcribed",
   transcription_failed = "transcription_failed"

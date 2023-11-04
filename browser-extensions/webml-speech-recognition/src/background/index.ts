@@ -98,8 +98,9 @@ chrome.runtime.onInstalled.addListener(() => {
 // @ts-ignore
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (request.cmd === "toggleRecording") {
+        let with_mic = request.data;
         // https://stackoverflow.com/questions/48107746/chrome-extension-message-not-sending-response-undefined
-        handleRecording(sendResponse);
+        handleRecording(sendResponse, with_mic);
     } else if (request.cmd === "transcribeTestFile") {
 
         (async () => {
@@ -139,7 +140,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                     await db.audios.update(audioId, { transcription: jsonSegments[0]["dr"]["text"], status: Status.transcribed })
                 } else {
                     console.log("DECODER IS NOT DEFINED ! NOT NORMAL")
-                    
+
                     await db.audios.update(audioId, { transcription: "X", status: Status.transcription_failed })
                 }
 
@@ -197,28 +198,36 @@ async function getCurrentTab() {
     return tab;
 }
 
-const handleRecording = async (sendResponse: (response?: any) => void) => {
-    const tab = await getCurrentTab()
-    if (tab) {
-        if (recording) {
-            sendMessageToOffscreenDocument({ type: 'stop-recording', target: 'offscreen' })
-            sendResponse({ responseCode: "stop-recording", target: "popup" })
-            recording = false;
-            // chrome.action.setIcon({ path: 'icons/not-recording.png' });
-        } else {
-            // console.log(tab);
-            // Get a MediaStream for the active tab.
-            // @ts-ignore
-            chrome.tabCapture.getMediaStreamId({
-                targetTabId: tab.id
-            }, (streamId: string) => {
-                sendMessageToOffscreenDocument({ type: 'start-recording', target: 'offscreen', data: {"streamId": streamId, "tabTitle": tab.title }})
-                sendResponse({ responseCode: "start-recording", target: "popup" })
-                recording = true;
-            });
-        }
+const handleRecording = async (sendResponse: (response?: any) => void, mic: boolean) => {
+    if (recording) {
+        sendMessageToOffscreenDocument({ type: 'stop-recording', target: 'offscreen' })
+        sendResponse({ responseCode: "stop-recording", target: "popup" })
+        recording = false;
+        // chrome.action.setIcon({ path: 'icons/not-recording.png' });
     } else {
-        console.log("no active tab")
-        sendResponse({ responseCode: "no-activate-tab-found", target: "popup" })
+        if (mic) {
+            sendMessageToOffscreenDocument({ type: 'start-mic-recording', target: 'offscreen'})
+            sendResponse({ responseCode: "start-mic-recording", target: "popup" });
+            recording = true;
+        } else {
+
+            const tab = await getCurrentTab()
+            if (tab) {
+                // console.log(tab);
+                // Get a MediaStream for the active tab.
+                // @ts-ignore
+                chrome.tabCapture.getMediaStreamId({
+                    targetTabId: tab.id
+                }, (streamId: string) => {
+                    sendMessageToOffscreenDocument({ type: 'start-tab-audio-recording', target: 'offscreen', data: { "streamId": streamId, "tabTitle": tab.title } })
+                    sendResponse({ responseCode: "start-tab-audio-recording", target: "popup" })
+                    recording = true;
+                });
+            }
+            else {
+                console.log("no active tab")
+                sendResponse({ responseCode: "no-activate-tab-found", target: "popup" })
+            }
+        }
     }
 };

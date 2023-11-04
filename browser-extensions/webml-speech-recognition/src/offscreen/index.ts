@@ -12,13 +12,13 @@ function blobToBase64(blob: Blob) {
     });
 }
 
-async function createEmptyAudio(tabTitle: string) {
+async function createEmptyAudio(tabTitle: string, withMic: boolean) {
     try {
         // Add the new transcription!
         const id = await db.audios.add({
             transcription: "",
             tabTitle: tabTitle,
-            status: Status.recording
+            status: withMic ? Status.mic_recording : Status.tab_recording
         });
         return id;
     } catch (error) {
@@ -40,9 +40,12 @@ function render() {
     chrome.runtime.onMessage.addListener(async (message) => {
         if (message.target === "offscreen") {
             switch (message.type) {
-                case "start-recording":
-                    const {streamId, tabTitle} = message.data
+                case "start-tab-audio-recording":
+                    const { streamId, tabTitle } = message.data
                     startRecording(streamId, tabTitle);
+                    break;
+                case "start-mic-recording":
+                    startMicRecording();
                     break;
                 case "stop-recording":
                     stopRecording();
@@ -56,6 +59,66 @@ function render() {
     let recorder: MediaRecorder | null = null;
     let data: BlobPart[] = [];
     let recordingId: string | null = null;
+
+    async function startMicRecording() {
+
+        if (recorder?.state === "recording") {
+            throw new Error(
+                "Called startRecording while recording is in progress."
+            );
+        }
+
+        console.log("trying to get mic")
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false
+        });
+        console.log(mediaStream)
+
+        // Start recording.
+        recorder = new MediaRecorder(mediaStream, {
+            mimeType: 'audio/webm;codecs=pcm',
+        });
+        recorder.ondataavailable = async (event) => {
+            data.push(event.data);
+        };
+        recorder.onstop = async () => {
+            const blob = new Blob(data, { type: "audio/webm;codecs=pcm" });
+
+            const arrayBuffer = await blob.arrayBuffer();
+            const audioContext = new AudioContext({ sampleRate: 16000 });
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+            let wavBlob = bufferToWAVE(audioBuffer)
+            const wavArrayBuffer = await wavBlob.arrayBuffer()
+            if (recordingId) {
+                await updateAudio(recordingId, wavArrayBuffer)
+            }
+            // let url = URL.createObjectURL(wavBlob)
+            // window.open(url, "_blank");
+
+            // @ts-ignore
+            chrome.runtime.sendMessage({
+                target: 'background',
+                type: 'audioWav',
+                data: recordingId,
+            });
+            // Clear state ready for next recording
+            recorder = null;
+            data = [];
+        };
+        recorder.start();
+        console.log(recorder);
+        recordingId = await createEmptyAudio("Microphone", true);
+
+        // Record the current state in the URL. This provides a very low-bandwidth
+        // way of communicating with the service worker (the service worker can check
+        // the URL of the document and see the current recording state). We can't
+        // store that directly in the service worker as it may be terminated while
+        // recording is in progress. We could write it to storage but that slightly
+        // increases the risk of things getting out of sync.
+        window.location.hash = "recording";
+    }
+
     async function startRecording(streamId: string, tabTitle: string) {
 
         if (recorder?.state === "recording") {
@@ -79,15 +142,6 @@ function render() {
                 },
             },*/
         });
-
-        // const audioContext = new AudioContext({
-        //     sampleRate: 16000
-        // });
-        // const mediaStreamSource = audioContext.createMediaStreamSource(mediaStream)
-        // const mediaStreamDestination = audioContext.createMediaStreamDestination()
-        // mediaStreamDestination.channelCount = 1
-        // // Continue to play the captured audio to the user.
-        // mediaStreamSource.connect(audioContext.destination)
 
         // // Continue to play the captured audio to the user.
         const audioCtx = new AudioContext();
@@ -127,7 +181,7 @@ function render() {
             data = [];
         };
         recorder.start();
-        recordingId = await createEmptyAudio(tabTitle);
+        recordingId = await createEmptyAudio(tabTitle, false);
 
         // Record the current state in the URL. This provides a very low-bandwidth
         // way of communicating with the service worker (the service worker can check
