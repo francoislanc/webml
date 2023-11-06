@@ -1,7 +1,7 @@
 <div class="container h-full mx-auto flex justify-center items-center">
 	<div class="space-y-5">
 		<div class="w-full grid grid-cols-1 gap-4">
-			<a class="card bg-initial card-hover overflow-hidden" href="#top"
+			<a class="card bg-initial card-hover overflow-hidden" href="#"
 				><header>
 					<img
 						src="webml-speech-recognition-screenshot.png"
