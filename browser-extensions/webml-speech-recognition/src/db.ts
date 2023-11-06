@@ -9,12 +9,20 @@ export enum Status {
   transcription_failed = "transcription_failed"
 };
 
+export enum AudioSource {
+  microphone = "microphone",
+  browser_tab = "browser_tab",
+  file = "file",
+};
+
 export interface AppAudio {
   id?: number;
   audio?: ArrayBuffer;
   tabTitle: string;
   transcription: string;
   status: Status;
+  source: AudioSource;
+  created: Date;
 }
 
 
@@ -24,7 +32,7 @@ export class AppDexie extends Dexie {
   constructor() {
     super('webml-speech-recognition-db');
     this.version(1).stores({
-      audios: '++id, audio, tabTitle, transcription, status', // Primary key and indexed props
+      audios: '++id, audio, tabTitle, transcription, status, source, created', // Primary key and indexed props
     });
   }
 }

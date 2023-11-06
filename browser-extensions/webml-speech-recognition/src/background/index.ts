@@ -89,6 +89,24 @@ chrome.runtime.onInstalled.addListener(() => {
     return true;
 });
 
+// UGLY HACK : "Persistent" service worker via bug exploit 
+// https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
+// @ts-ignore
+/*const keepAlive = () => {
+    console.log("keepAlive the background !!")
+    // @ts-ignore
+    setInterval(chrome.runtime.getPlatformInfo, 20e3)
+}
+// @ts-ignore
+chrome.runtime.onStartup.addListener(keepAlive);
+keepAlive();*/
+
+chrome.runtime.onStartup.addListener(setupOffscreen);
+self.onmessage = e => {
+    console.log(e)
+};
+setupOffscreen();
+
 // NOTE: If you want to toggle the side panel from the extension's action button,
 // you can use the following code:
 // TODO : wait fix from chrome to access activeTab from sidePanel (issue : https://groups.google.com/a/chromium.org/g/chromium-extensions/c/DET2SXCFnDg/m/rbG3EfgpAQAJ)
@@ -97,6 +115,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // @ts-ignore
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+    console.log(request);
     if (request.cmd === "toggleRecording") {
         let with_mic = request.data;
         // https://stackoverflow.com/questions/48107746/chrome-extension-message-not-sending-response-undefined
@@ -134,7 +153,17 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 }
 
                 if (decoder) {
+
+                    let startTime = performance.now();
                     const segments = decoder.decode(audioArrayU8);
+                    let endTime = performance.now();
+
+                    let timeDiff = endTime - startTime; //in ms
+                    // strip the ms
+                    timeDiff /= 1000;
+                    var seconds = Math.round(timeDiff);
+                    console.log(seconds + " seconds");
+
                     console.log(segments)
                     const jsonSegments = JSON.parse(segments)
                     await db.audios.update(audioId, { transcription: jsonSegments[0]["dr"]["text"], status: Status.transcribed })
@@ -183,7 +212,7 @@ async function setupOffscreen() {
 }
 
 async function sendMessageToOffscreenDocument(data: AppMessage) {
-    await setupOffscreen();
+    // await setupOffscreen();
     // @ts-ignore
     await chrome.runtime.sendMessage(data);
 }
@@ -206,7 +235,7 @@ const handleRecording = async (sendResponse: (response?: any) => void, mic: bool
         // chrome.action.setIcon({ path: 'icons/not-recording.png' });
     } else {
         if (mic) {
-            sendMessageToOffscreenDocument({ type: 'start-mic-recording', target: 'offscreen'})
+            sendMessageToOffscreenDocument({ type: 'start-mic-recording', target: 'offscreen' })
             sendResponse({ responseCode: "start-mic-recording", target: "popup" });
             recording = true;
         } else {

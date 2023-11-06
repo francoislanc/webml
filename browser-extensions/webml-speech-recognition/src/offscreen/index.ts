@@ -1,5 +1,5 @@
 import { bufferToWAVE } from "./wavUtils";
-import { Status, db } from "../db";
+import { AudioSource, Status, db } from "../db";
 
 // Options
 // https://developer.chrome.com/docs/extensions/mv3/options/
@@ -18,7 +18,9 @@ async function createEmptyAudio(tabTitle: string, withMic: boolean) {
         const id = await db.audios.add({
             transcription: "",
             tabTitle: tabTitle,
-            status: withMic ? Status.mic_recording : Status.tab_recording
+            status: withMic ? Status.mic_recording : Status.tab_recording,
+            source: withMic ? AudioSource.microphone : AudioSource.browser_tab,
+            created: new Date()
         });
         return id;
     } catch (error) {
@@ -55,6 +57,15 @@ function render() {
             }
         }
     });
+
+
+    setInterval(async () => {
+        if (navigator) {
+            console.log("send message from offscreen");
+            (await navigator.serviceWorker.ready).active.postMessage('keepAlive');
+        }
+    }
+        , 20e3);
 
     let recorder: MediaRecorder | null = null;
     let data: BlobPart[] = [];
@@ -108,7 +119,7 @@ function render() {
         };
         recorder.start();
         console.log(recorder);
-        recordingId = await createEmptyAudio("Microphone", true);
+        recordingId = await createEmptyAudio("", true);
 
         // Record the current state in the URL. This provides a very low-bandwidth
         // way of communicating with the service worker (the service worker can check

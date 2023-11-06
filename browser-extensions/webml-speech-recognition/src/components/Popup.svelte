@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { db } from "../db";
+    import { AudioSource, db } from "../db";
     import { Status } from "../db";
     import { liveQuery } from "dexie";
     import { AppBar, FileButton, ProgressBar } from "@skeletonlabs/skeleton";
@@ -106,6 +106,8 @@
                 tabTitle: title,
                 status: Status.transcribing,
                 audio: data,
+                source: AudioSource.file,
+                created: new Date(),
             });
             return id;
         } catch (error) {
@@ -136,13 +138,26 @@
             }
         }
     }
+
+    const truncate = (input: string) =>
+        input.length > 40 ? `${input.substring(0, 40)}...` : input;
+
+    const cleanTranscription = (input: string) => {
+        const regex = /<\|([0-9]*[.])?[0-9]+\|>/g;
+        const regex2 = /^\. /g;
+
+        let output = input.replaceAll(regex, "").replaceAll(regex2, "");
+        return output;
+    };
 </script>
 
 <div class="container mx-auto">
     <div class="flex flex-col h-full">
         <AppBar>
             <svelte:fragment slot="lead">
-                <h2 class="h2">Speech recognition</h2></svelte:fragment
+                <h2 class="h2 font-medium">
+                    Speech recognition
+                </h2></svelte:fragment
             >
 
             <svelte:fragment slot="trail"
@@ -244,14 +259,18 @@
                                     <section
                                         class="flex flex-col space-y-4 p-4"
                                     >
-                                        <h4 class="h4 text-justify">
-                                            {tr.tabTitle}
-                                        </h4>
+                                        {#if tr.source != AudioSource.microphone}
+                                            <h3 class="font-medium">
+                                                {truncate(tr.tabTitle)}
+                                            </h3>
+                                        {/if}
                                         {#if tr.status === Status.transcribed}
                                             {@const url = objectUrl(tr.audio)}
                                             <div>
                                                 <p class="text-justify">
-                                                    {tr.transcription}
+                                                    {cleanTranscription(
+                                                        tr.transcription
+                                                    )}
                                                 </p>
                                             </div>
                                             <div>
@@ -286,8 +305,14 @@
                                         <div class="flex justify-between">
                                             <div>
                                                 <p>
-                                                    Date: 11/12/2023<br />Type:
-                                                    URL
+                                                    <span
+                                                        class="badge variant-soft"
+                                                        >{tr.created.toLocaleDateString()}</span
+                                                    >
+                                                    <span
+                                                        class="badge variant-soft"
+                                                        >{tr.source}</span
+                                                    >
                                                 </p>
                                             </div>
                                             <div>
