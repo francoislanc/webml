@@ -291,7 +291,7 @@ impl Decoder {
                 duration: segment_duration,
                 dr,
             };
-            console_log!("{seek}: {segment:?}");
+            // console_log!("{seek}: {segment:?}");
             segments.push(segment)
         }
         Ok(segments)
@@ -303,7 +303,7 @@ impl Decoder {
 
         let mel_filters = safetensors::tensor::SafeTensors::deserialize(&md.mel_filters)?;
         let mel_filters = mel_filters.tensor("mel_80")?.load(&device)?;
-        console_log!("loaded mel filters {:?}", mel_filters.shape());
+        // console_log!("loaded mel filters {:?}", mel_filters.shape());
         let mel_filters = mel_filters.flatten_all()?.to_vec1::<f32>()?;
         let config: Config = serde_json::from_slice(&md.config)?;
         let model = if md.quantized {
@@ -315,7 +315,7 @@ impl Decoder {
             let vb = VarBuilder::from_buffered_safetensors(md.weights, m::DTYPE, &device)?;
             Model::Normal(m::model::Whisper::load(&vb, config)?)
         };
-        console_log!("done loading model");
+        // console_log!("done loading model");
 
         let task = match md.task.as_deref() {
             Some("translate") => Some(Task::Translate),
@@ -339,7 +339,7 @@ impl Decoder {
         let device = Device::Cpu;
         let mut wav_input = std::io::Cursor::new(wav_input);
         let (header, data) = wav::read(&mut wav_input)?;
-        console_log!("loaded wav data: {header:?}");
+        // console_log!("loaded wav data: {header:?}");
         if header.sampling_rate != m::SAMPLE_RATE as u32 {
             anyhow::bail!("wav file must have a {} sampling rate", m::SAMPLE_RATE);
         }
@@ -348,11 +348,11 @@ impl Decoder {
             .iter()
             .map(|v| *v as f32 / 32768.)
             .collect();
-        console_log!("pcm data loaded {}", pcm_data.len());
+        // console_log!("pcm data loaded {}", pcm_data.len());
         let mel = crate::audio::pcm_to_mel(&pcm_data, &self.mel_filters)?;
         let mel_len = mel.len();
         let mel = Tensor::from_vec(mel, (1, m::N_MELS, mel_len / m::N_MELS), &device)?;
-        console_log!("loaded mel: {:?}", mel.dims());
+        // console_log!("loaded mel: {:?}", mel.dims());
         let segments = self.run(&mel)?;
         Ok(segments)
     }

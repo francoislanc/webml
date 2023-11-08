@@ -1,4 +1,4 @@
-import init, { Decoder } from "../webml/m";
+import init, { Decoder } from "../webml/whisper";
 import { Status, db } from "../db";
 import type { AppMessage } from "../messages";
 
@@ -39,7 +39,6 @@ async function fetchArrayBuffer(url: string) {
 }
 
 async function initDecoder() {
-    console.log("downloading models");
     let weightsArrayU8, tokenizerArrayU8, mel_filtersArrayU8, configArrayU8;
     [
         weightsArrayU8,
@@ -52,7 +51,6 @@ async function initDecoder() {
         fetchArrayBuffer(mel_filtersURL),
         fetchArrayBuffer(configURL),
     ]);
-    console.log("downloading done")
 
     let quantized = false;
     if (modelID.includes("quantized")) {
@@ -89,22 +87,9 @@ chrome.runtime.onInstalled.addListener(() => {
     return true;
 });
 
-// UGLY HACK : "Persistent" service worker via bug exploit 
-// https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // @ts-ignore
-/*const keepAlive = () => {
-    console.log("keepAlive the background !!")
-    // @ts-ignore
-    setInterval(chrome.runtime.getPlatformInfo, 20e3)
-}
-// @ts-ignore
-chrome.runtime.onStartup.addListener(keepAlive);
-keepAlive();*/
-
 chrome.runtime.onStartup.addListener(setupOffscreen);
-self.onmessage = e => {
-    console.log(e)
-};
+self.onmessage = e => {}
 setupOffscreen();
 
 // NOTE: If you want to toggle the side panel from the extension's action button,
@@ -115,7 +100,7 @@ setupOffscreen();
 
 // @ts-ignore
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-    console.log(request);
+    // console.log(request);
     if (request.cmd === "toggleRecording") {
         let with_mic = request.data;
         // https://stackoverflow.com/questions/48107746/chrome-extension-message-not-sending-response-undefined
@@ -125,10 +110,8 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         (async () => {
             const res = await fetch(audioURL);
             const audioArrayU8 = new Uint8Array(await res.arrayBuffer());
-            console.log("decoding")
             if (decoder) {
                 const segments = decoder.decode(audioArrayU8);
-                console.log(segments)
             }
         })();
 
@@ -139,37 +122,32 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
         (async () => {
             let audioId = request.data;
-            console.log(`background need to process ${audioId}`)
             const audioToTranscribe = await db.audios.get(audioId);
             if (audioToTranscribe && audioToTranscribe.audio) {
                 const audioArrayU8 = new Uint8Array(audioToTranscribe.audio);
                 if (decoder) {
 
                 } else {
-                    // TODO TMP HACK TO FIX DECODER NULL
-                    console.log("HACK : REDO INIT")
+                    // TODO TMP FIX DECODER NULL
                     await init()
                     decoder = await initDecoder();
                 }
 
                 if (decoder) {
 
-                    let startTime = performance.now();
+                    // let startTime = performance.now();
                     const segments = decoder.decode(audioArrayU8);
-                    let endTime = performance.now();
+                    // let endTime = performance.now();
 
-                    let timeDiff = endTime - startTime; //in ms
+                    // let timeDiff = endTime - startTime; //in ms
                     // strip the ms
-                    timeDiff /= 1000;
-                    var seconds = Math.round(timeDiff);
-                    console.log(seconds + " seconds");
+                    // timeDiff /= 1000;
+                    // let seconds = Math.round(timeDiff);
+                    // console.log(seconds + " seconds");
 
-                    console.log(segments)
                     const jsonSegments = JSON.parse(segments)
                     await db.audios.update(audioId, { transcription: jsonSegments[0]["dr"]["text"], status: Status.transcribed })
                 } else {
-                    console.log("DECODER IS NOT DEFINED ! NOT NORMAL")
-
                     await db.audios.update(audioId, { transcription: "X", status: Status.transcription_failed })
                 }
 
@@ -254,7 +232,6 @@ const handleRecording = async (sendResponse: (response?: any) => void, mic: bool
                 });
             }
             else {
-                console.log("no active tab")
                 sendResponse({ responseCode: "no-activate-tab-found", target: "popup" })
             }
         }

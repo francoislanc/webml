@@ -60,9 +60,11 @@ function render() {
 
 
     setInterval(async () => {
-        if (navigator) {
-            console.log("send message from offscreen");
-            (await navigator.serviceWorker.ready).active.postMessage('keepAlive');
+        if (navigator && navigator.serviceWorker) {
+            let ready = (await navigator.serviceWorker.ready)
+            if (ready.active) {
+                ready.active.postMessage('keepAlive');
+            }
         }
     }
         , 20e3);
@@ -79,12 +81,10 @@ function render() {
             );
         }
 
-        console.log("trying to get mic")
         const mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: false
         });
-        console.log(mediaStream)
 
         // Start recording.
         recorder = new MediaRecorder(mediaStream, {
@@ -118,7 +118,6 @@ function render() {
             data = [];
         };
         recorder.start();
-        console.log(recorder);
         recordingId = await createEmptyAudio("", true);
 
         // Record the current state in the URL. This provides a very low-bandwidth
