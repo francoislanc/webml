@@ -14,8 +14,8 @@
 <style>
     .overlay {
         position: fixed;
-        width: 300px;
-        height: 300px;
+        width: 10px;
+        height: 10px;
         top: 16px;
         left: 16px;
         background-color: grey;

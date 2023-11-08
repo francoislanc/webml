@@ -1,5 +1,5 @@
 import { bufferToWAVE } from "./wavUtils";
-import { AudioSource, Status, db } from "../db";
+import { ImageSource, Status, db } from "../db";
 
 // Options
 // https://developer.chrome.com/docs/extensions/mv3/options/

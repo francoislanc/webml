@@ -1,24 +1,21 @@
-import init, { Decoder } from "../webml/whisper";
+import init, { Model } from "../webml/blip";
 import { Status, db } from "../db";
 import type { AppMessage } from "../messages";
 
-const tiny_quantized_q80 = {
-    base_url: "https://huggingface.co/lmz/candle-whisper/resolve/main/",
-    model: "model-tiny-en-q80.gguf",
-    tokenizer: "tokenizer-tiny-en.json",
-    config: "config-tiny-en.json",
+const blip_image_quantized_q4k = {
+    base_url: "https://huggingface.co/lmz/candle-blip/resolve/main/",
+    model: "blip-image-captioning-large-q4k.gguf",
+    tokenizer: "tokenizer.json",
+    config: "config.json",
+    quantized: true,
+    size: "271 MB"
 };
-const modelID = "tiny_quantized_q80";
-const model = tiny_quantized_q80.model;
-const modelURL = tiny_quantized_q80.base_url + model;
-const tokenizerURL = tiny_quantized_q80.base_url + tiny_quantized_q80.tokenizer;
-const configURL = tiny_quantized_q80.base_url + tiny_quantized_q80.config;
-
-/*let audioURL =
-    "https://huggingface.co/datasets/Narsil/candle-examples/resolve/main/samples_jfk.wav";*/
-let audioURL = "http://localhost:8080/test.wav"
-let mel_filtersURL =
-    " https://huggingface.co/spaces/lmz/candle-whisper/resolve/main/mel_filters.safetensors";
+const modelID = "blip_image_quantized_q4k";
+const model = blip_image_quantized_q4k.model;
+const modelURL = blip_image_quantized_q4k.base_url + model;
+const tokenizerURL = blip_image_quantized_q4k.base_url + blip_image_quantized_q4k.tokenizer;
+const configURL = blip_image_quantized_q4k.base_url + blip_image_quantized_q4k.config;
+const quantized = blip_image_quantized_q4k.quantized
 
 let recording = false;
 
@@ -39,43 +36,27 @@ async function fetchArrayBuffer(url: string) {
 }
 
 async function initDecoder() {
-    let weightsArrayU8, tokenizerArrayU8, mel_filtersArrayU8, configArrayU8;
+    let weightsArrayU8, tokenizerArrayU8, configArrayU8;
     [
         weightsArrayU8,
         tokenizerArrayU8,
-        mel_filtersArrayU8,
         configArrayU8,
     ] = await Promise.all([
         fetchArrayBuffer(modelURL),
         fetchArrayBuffer(tokenizerURL),
-        fetchArrayBuffer(mel_filtersURL),
         fetchArrayBuffer(configURL),
     ]);
 
-    let quantized = false;
-    if (modelID.includes("quantized")) {
-        quantized = true;
-    }
-    let is_multilingual = false;
-    if (modelID.includes("multilingual")) {
-        is_multilingual = true;
-    }
-    let timestamps = true;
-    let decoder = new Decoder(
+    let decoder = new Model(
         weightsArrayU8,
         tokenizerArrayU8,
-        mel_filtersArrayU8,
         configArrayU8,
-        quantized,
-        is_multilingual,
-        timestamps,
-        undefined,
-        undefined,
+        quantized
     );
     return decoder;
 }
 
-let decoder: Decoder | undefined = undefined;
+let decoder: Model | undefined = undefined;
 // @ts-ignore
 chrome.runtime.onInstalled.addListener(() => {
 
@@ -88,9 +69,17 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // @ts-ignore
-chrome.runtime.onStartup.addListener(setupOffscreen);
+/* chrome.runtime.onStartup.addListener(setupOffscreen);
 self.onmessage = e => {}
 setupOffscreen();
+*/
+
+// https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
+
+
+const keepAlive = () => setInterval(chrome.runtime.getPlatformInfo, 20e3);
+chrome.runtime.onStartup.addListener(keepAlive);
+keepAlive();
 
 // NOTE: If you want to toggle the side panel from the extension's action button,
 // you can use the following code:
@@ -105,26 +94,14 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         let with_mic = request.data;
         // https://stackoverflow.com/questions/48107746/chrome-extension-message-not-sending-response-undefined
         handleRecording(sendResponse, with_mic);
-    } else if (request.cmd === "transcribeTestFile") {
-
-        (async () => {
-            const res = await fetch(audioURL);
-            const audioArrayU8 = new Uint8Array(await res.arrayBuffer());
-            if (decoder) {
-                const segments = decoder.decode(audioArrayU8);
-            }
-        })();
-
-        sendResponse({ responseCode: "nice", target: "offscreen" })
-
-    } else if (request.type === "audioWav") {
+    } else if (request.type === "imageToDecode") {
         // TODO how to desctructure one object into multiple var
 
         (async () => {
-            let audioId = request.data;
-            const audioToTranscribe = await db.audios.get(audioId);
-            if (audioToTranscribe && audioToTranscribe.audio) {
-                const audioArrayU8 = new Uint8Array(audioToTranscribe.audio);
+            let imageId = request.data;
+            const imageToCaption = await db.images.get(imageId);
+            if (imageToCaption && imageToCaption.image) {
+                const imageArrayU8 = new Uint8Array(imageToCaption.image);
                 if (decoder) {
 
                 } else {
@@ -135,20 +112,22 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
                 if (decoder) {
 
-                    // let startTime = performance.now();
-                    const segments = decoder.decode(audioArrayU8);
-                    // let endTime = performance.now();
+                    let startTime = performance.now();
+                    console.log("before generation captoin from image")
+                    const caption = decoder.generate_caption_from_image(imageArrayU8);
+                    let endTime = performance.now();
+                    console.log("after generation captoin from image")
+                    console.log(caption)
 
-                    // let timeDiff = endTime - startTime; //in ms
+                    let timeDiff = endTime - startTime; //in ms
                     // strip the ms
-                    // timeDiff /= 1000;
-                    // let seconds = Math.round(timeDiff);
-                    // console.log(seconds + " seconds");
+                    timeDiff /= 1000;
+                    let seconds = Math.round(timeDiff);
+                    console.log(seconds + " seconds");
 
-                    const jsonSegments = JSON.parse(segments)
-                    await db.audios.update(audioId, { transcription: jsonSegments[0]["dr"]["text"], status: Status.transcribed })
+                    await db.images.update(imageId, { caption: caption, status: Status.decoded })
                 } else {
-                    await db.audios.update(audioId, { transcription: "X", status: Status.transcription_failed })
+                    await db.images.update(imageId, { caption: "X", status: Status.failed })
                 }
 
             }
@@ -166,6 +145,7 @@ async function setupOffscreen() {
     let clientList = await clients.matchAll();
 
     for (const client of clientList) {
+        console.log(client.url)
         if (client.url.split('#')[0].endsWith("offscreen.html")) {
             exist = true;
             break;
@@ -176,6 +156,7 @@ async function setupOffscreen() {
         if (creating) {
             await creating;
         } else {
+            console.log("create offscreen")
             // @ts-ignore
             creating = chrome.offscreen.createDocument({
                 url: "src/offscreen/offscreen.html",

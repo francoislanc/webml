@@ -2,37 +2,34 @@ import Dexie, { type Table } from 'dexie';
 
 
 export enum Status {
-  mic_recording = "mic_recording",
-  tab_recording = "tab_recording",
-  transcribing = "transcribing",
-  transcribed = "transcribed",
-  transcription_failed = "transcription_failed"
+  decoding = "decoding",
+  decoded = "decoded",
+  failed = "failed"
 };
 
-export enum AudioSource {
-  microphone = "microphone",
+export enum ImageSource {
   browser_tab = "browser_tab",
   file = "file",
 };
 
-export interface AppAudio {
+export interface AppImage {
   id?: number;
-  audio?: ArrayBuffer;
+  image?: ArrayBuffer;
   tabTitle: string;
-  transcription: string;
+  caption: string;
   status: Status;
-  source: AudioSource;
+  source: ImageSource;
   created: Date;
 }
 
 
 export class AppDexie extends Dexie {
-  audios!: Table<AppAudio>; 
+  images!: Table<AppImage>; 
 
   constructor() {
-    super('webml-speech-recognition-db');
+    super('webml-image-captioning-db');
     this.version(1).stores({
-      audios: '++id, audio, tabTitle, transcription, status, source, created', // Primary key and indexed props
+      images: '++id, audio, tabTitle, transcription, status, source, created', // Primary key and indexed props
     });
   }
 }

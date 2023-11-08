@@ -1,6 +1,6 @@
 {
   "name": "webml-image-captioning",
-  "description": "ML-powered imagecaptioning in your browser.",
+  "description": "ML-powered image captioning in your browser.",
   "version": "1.0.0",
   "type": "module",
   "repository": {
