@@ -1,7 +1,7 @@
 {
   "name": "webml-speech-recognition",
   "description": "ML-powered speech recognition in your browser.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "repository": {
     "type": "git",

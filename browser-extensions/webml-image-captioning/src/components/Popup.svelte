@@ -13,7 +13,7 @@
     import { exportDB } from "dexie-export-import";
     // @ts-ignore
     import download from "downloadjs";
-
+    
     let transcriptions = liveQuery(() => db.images.reverse().toArray());
     /*let transcriptions = [
         {
@@ -236,7 +236,7 @@
                                                 </p>
                                             </div>
                                             <div>
-                                                {#if tr.status != Status.decoded}
+                                                {#if tr.status != Status.decoding}
                                                     <button
                                                         type="button"
                                                         class="btn-icon btn-icon-sm variant-soft"
