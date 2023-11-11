@@ -43,13 +43,14 @@
         return "";
     }
 
-    async function record(with_mic: boolean) {
+    async function captureScreenshot() {
         //@ts-ignore
         const response = await chrome.runtime.sendMessage({
-            cmd: "toggleRecording",
-            data: with_mic,
+            cmd: "initCapture",
             target: "background",
         });
+
+        window.close();
     }
 
     async function exportAudioDb() {
@@ -159,7 +160,7 @@
         <div class="flex mt-4 justify-center space-x-1">
             <button
                 disabled={$decodingInProgress}
-                on:click={async () => await record(false)}
+                on:click={async () => await captureScreenshot()}
                 class=" btn variant-soft-primary"
             >
                 <span>
@@ -212,10 +213,19 @@
                                                 </p>
                                             </div>
                                         {:else if tr.status === Status.decoding}
+                                            {@const url = objectUrl(tr.image)}
                                             <label for="decoding"
                                                 >Decoding ...</label
                                             >
                                             <ProgressBar />
+                                            <div>
+                                                <p class="text-justify">
+                                                    <img
+                                                        src={url}
+                                                        alt={tr.tabTitle}
+                                                    />
+                                                </p>
+                                            </div>
                                         {:else if tr.status === Status.failed}
                                             <p>X</p>
                                         {/if}

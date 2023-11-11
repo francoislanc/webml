@@ -1,5 +1,5 @@
 import init, { Model } from "../webml/blip";
-import { Status, db } from "../db";
+import { ImageSource, Status, db } from "../db";
 import type { AppMessage } from "../messages";
 
 const blip_image_quantized_q4k = {
@@ -88,17 +88,89 @@ keepAlive();
 //   .catch((error) => console.error(error));
 
 // @ts-ignore
+async function createImage(title: string, data: ArrayBuffer) {
+    try {
+        // Add the new transcription!
+        const id = await db.images.add({
+            caption: "",
+            tabTitle: title,
+            status: Status.decoding,
+            image: data,
+            source: ImageSource.browser_tab,
+            created: new Date(),
+        });
+        return id;
+    } catch (error) {
+        console.log(`Failed to add : ${error}`);
+    }
+}
+
+function dataURLtoFile(dataurl, filename) {
+    var arr = dataurl.split(','),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[arr.length - 1]),
+        n = bstr.length,
+        u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+}
+export const blobToData = (
+    blob: Blob
+): Promise<string | ArrayBuffer | null> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsArrayBuffer(blob);
+    });
+};
+
+
+let captureImageTab: string;
+let captureTabTitle: string;
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-    // console.log(request);
-    if (request.cmd === "toggleRecording") {
-        let with_mic = request.data;
-        // https://stackoverflow.com/questions/48107746/chrome-extension-message-not-sending-response-undefined
-        handleRecording(sendResponse, with_mic);
-    } else if (request.type === "imageToDecode") {
+    console.log(request);
+    if (request.cmd === "initCapture") {
+        (async () => {
+            console.log("get current tab")
+            const tab = await getCurrentTab()
+            console.log(tab)
+            captureTabTitle = tab.title
+            
+            chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" }, (image) => {
+                // image is base64
+                console.log("got image capture")
+                captureImageTab = image;
+            })
+
+            // ask to the tab to capture screen part
+            const response = await chrome.tabs.sendMessage(tab.id, { cmd: "cropScreen" });
+
+       
+        })();
+        sendResponse({ responseCode: "nice", target: "offscreen" })
+
+    } else if (request.type === "endCapture") {
+
+        // crop with image
+        console.log("sending you the image in the response from crop")
+        sendResponse({ responseCode: "cropImage", args: [captureImageTab, request.area, request.dpr, true, "png"] })
+    } else if (request.type === "imageToDecode" || request.type === "dataUrlToDecode") {
         // TODO how to desctructure one object into multiple var
 
+
+
         (async () => {
-            let imageId = request.data;
+
+            let imageId;
+            if (request.type === "dataUrlToDecode") {
+                let file = dataURLtoFile(request.data, "TAB FILE");
+                let data = await blobToData(file);
+                imageId = await createImage(captureTabTitle, data);
+            } else {
+                imageId = request.data;
+            }
             const imageToCaption = await db.images.get(imageId);
             if (imageToCaption && imageToCaption.image) {
                 const imageArrayU8 = new Uint8Array(imageToCaption.image);
