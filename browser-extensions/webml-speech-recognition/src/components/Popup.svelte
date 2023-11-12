@@ -11,7 +11,7 @@
 
     import Delete from "~icons/mdi/delete";
     import { exportDB } from "dexie-export-import";
-    // @ts-ignore
+    
     import download from "downloadjs";
 
     let transcriptions = liveQuery(() => db.audios.reverse().toArray());
@@ -67,7 +67,6 @@
                 console.error(err);
             }
         }
-        //@ts-ignore
         const response = await chrome.runtime.sendMessage({
             cmd: "toggleRecording",
             data: with_mic,
@@ -136,7 +135,7 @@
                 if (data && data instanceof ArrayBuffer) {
                     let id = await createFileAudio(file.name, data);
 
-                    // @ts-ignore
+                    
                     const response = await chrome.runtime.sendMessage({
                         target: "background",
                         type: "audioWav",

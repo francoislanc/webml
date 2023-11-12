@@ -19,9 +19,6 @@ const quantized = blip_image_quantized_q4k.quantized
 
 let recording = false;
 
-// Background service workers
-// https://developer.chrome.com/docs/extensions/mv3/service_workers/
-
 async function fetchArrayBuffer(url: string) {
     const cacheName = "whisper-candle-cache";
     const cache = await caches.open(cacheName);
@@ -57,7 +54,6 @@ async function initDecoder() {
 }
 
 let decoder: Model | undefined = undefined;
-// @ts-ignore
 chrome.runtime.onInstalled.addListener(() => {
 
     (async () => {
@@ -68,18 +64,13 @@ chrome.runtime.onInstalled.addListener(() => {
     return true;
 });
 
-// @ts-ignore
-/* chrome.runtime.onStartup.addListener(setupOffscreen);
-self.onmessage = e => {}
-setupOffscreen();
-*/
-
+// Function to keep the service worker active (with offscreen API workarounds)
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
+chrome.runtime.onStartup.addListener(setupOffscreen);
+self.onmessage = e => { }
+setupOffscreen();
 
 
-const keepAlive = () => setInterval(chrome.runtime.getPlatformInfo, 20e3);
-chrome.runtime.onStartup.addListener(keepAlive);
-keepAlive();
 
 // NOTE: If you want to toggle the side panel from the extension's action button,
 // you can use the following code:
@@ -87,7 +78,6 @@ keepAlive();
 // chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
 //   .catch((error) => console.error(error));
 
-// @ts-ignore
 async function createImage(title: string, data: ArrayBuffer) {
     try {
         // Add the new transcription!
@@ -105,16 +95,21 @@ async function createImage(title: string, data: ArrayBuffer) {
     }
 }
 
-function dataURLtoFile(dataurl, filename) {
-    var arr = dataurl.split(','),
-        mime = arr[0].match(/:(.*?);/)[1],
-        bstr = atob(arr[arr.length - 1]),
-        n = bstr.length,
-        u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
+function dataURLtoFile(dataurl: string, filename: string) {
+    let arr = dataurl.split(',');
+    if (arr && arr.length > 0) {
+        let match = arr[0].match(/:(.*?);/)
+        if (match) {
+            let mime = match[1],
+                bstr = atob(arr[arr.length - 1]),
+                n = bstr.length,
+                u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new File([u8arr], filename, { type: mime });
+        }
     }
-    return new File([u8arr], filename, { type: mime });
 }
 export const blobToData = (
     blob: Blob
@@ -128,46 +123,42 @@ export const blobToData = (
 
 
 let captureImageTab: string;
-let captureTabTitle: string;
+let captureTabTitle: string | undefined;
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-    console.log(request);
+
     if (request.cmd === "initCapture") {
         (async () => {
-            console.log("get current tab")
             const tab = await getCurrentTab()
-            console.log(tab)
             captureTabTitle = tab.title
-            
             chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" }, (image) => {
                 // image is base64
-                console.log("got image capture")
                 captureImageTab = image;
             })
 
             // ask to the tab to capture screen part
-            const response = await chrome.tabs.sendMessage(tab.id, { cmd: "cropScreen" });
-
-       
+            await chrome.tabs.sendMessage(tab.id, { cmd: "cropScreen" });
+            
         })();
         sendResponse({ responseCode: "nice", target: "offscreen" })
 
     } else if (request.type === "endCapture") {
 
         // crop with image
-        console.log("sending you the image in the response from crop")
+        // sending to the content the image in the response from crop
         sendResponse({ responseCode: "cropImage", args: [captureImageTab, request.area, request.dpr, true, "png"] })
     } else if (request.type === "imageToDecode" || request.type === "dataUrlToDecode") {
-        // TODO how to desctructure one object into multiple var
-
-
 
         (async () => {
 
             let imageId;
             if (request.type === "dataUrlToDecode") {
                 let file = dataURLtoFile(request.data, "TAB FILE");
-                let data = await blobToData(file);
-                imageId = await createImage(captureTabTitle, data);
+                if (file) {
+                    let data = await blobToData(file);
+                    if (data && captureTabTitle) {
+                        imageId = await createImage(captureTabTitle, data as ArrayBuffer);
+                    }
+                }
             } else {
                 imageId = request.data;
             }
@@ -185,17 +176,13 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 if (decoder) {
 
                     let startTime = performance.now();
-                    console.log("before generation captoin from image")
                     const caption = decoder.generate_caption_from_image(imageArrayU8);
                     let endTime = performance.now();
-                    console.log("after generation captoin from image")
-                    console.log(caption)
 
                     let timeDiff = endTime - startTime; //in ms
                     // strip the ms
                     timeDiff /= 1000;
                     let seconds = Math.round(timeDiff);
-                    console.log(seconds + " seconds");
 
                     await db.images.update(imageId, { caption: caption, status: Status.decoded })
                 } else {
@@ -209,15 +196,12 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
 });
 
-// Clients api version
 let creating: Promise<void> | null;
 async function setupOffscreen() {
     let exist = false;
-    // @ts-ignore
     let clientList = await clients.matchAll();
 
     for (const client of clientList) {
-        console.log(client.url)
         if (client.url.split('#')[0].endsWith("offscreen.html")) {
             exist = true;
             break;
@@ -228,24 +212,21 @@ async function setupOffscreen() {
         if (creating) {
             await creating;
         } else {
-            console.log("create offscreen")
-            // @ts-ignore
-            creating = chrome.offscreen.createDocument({
-                url: "src/offscreen/offscreen.html",
-                // @ts-ignore
-                reasons: [chrome.offscreen.Reason.USER_MEDIA],
-                justification: 'reason for needing the document'
-            });
-            await creating;
-            creating = null;
+            try {
+                
+                creating = chrome.offscreen.createDocument({
+                    url: "src/offscreen/offscreen.html",
+                    
+                    reasons: [chrome.offscreen.Reason.USER_MEDIA],
+                    justification: 'reason for needing the document'
+                });
+                await creating;
+                creating = null;
+            } catch (error) {
+                console.error("" + error);
+            }
         }
     }
-}
-
-async function sendMessageToOffscreenDocument(data: AppMessage) {
-    // await setupOffscreen();
-    // @ts-ignore
-    await chrome.runtime.sendMessage(data);
 }
 
 // TODO : replace if possible with only activeTab permission
@@ -253,40 +234,7 @@ async function sendMessageToOffscreenDocument(data: AppMessage) {
 async function getCurrentTab() {
     let queryOptions = { active: true, lastFocusedWindow: true };
     // `tab` will either be a `tabs.Tab` instance or `undefined`.
-    // @ts-ignore
+    
     let [tab] = await chrome.tabs.query(queryOptions);
     return tab;
 }
-
-const handleRecording = async (sendResponse: (response?: any) => void, mic: boolean) => {
-    if (recording) {
-        sendMessageToOffscreenDocument({ type: 'stop-recording', target: 'offscreen' })
-        sendResponse({ responseCode: "stop-recording", target: "popup" })
-        recording = false;
-        // chrome.action.setIcon({ path: 'icons/not-recording.png' });
-    } else {
-        if (mic) {
-            sendMessageToOffscreenDocument({ type: 'start-mic-recording', target: 'offscreen' })
-            sendResponse({ responseCode: "start-mic-recording", target: "popup" });
-            recording = true;
-        } else {
-
-            const tab = await getCurrentTab()
-            if (tab) {
-                // console.log(tab);
-                // Get a MediaStream for the active tab.
-                // @ts-ignore
-                chrome.tabCapture.getMediaStreamId({
-                    targetTabId: tab.id
-                }, (streamId: string) => {
-                    sendMessageToOffscreenDocument({ type: 'start-tab-audio-recording', target: 'offscreen', data: { "streamId": streamId, "tabTitle": tab.title } })
-                    sendResponse({ responseCode: "start-tab-audio-recording", target: "popup" })
-                    recording = true;
-                });
-            }
-            else {
-                sendResponse({ responseCode: "no-activate-tab-found", target: "popup" })
-            }
-        }
-    }
-};

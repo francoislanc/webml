@@ -76,7 +76,7 @@ async function initDecoder() {
 }
 
 let decoder: Decoder | undefined = undefined;
-// @ts-ignore
+
 chrome.runtime.onInstalled.addListener(() => {
 
     (async () => {
@@ -87,9 +87,9 @@ chrome.runtime.onInstalled.addListener(() => {
     return true;
 });
 
-// @ts-ignore
+
 chrome.runtime.onStartup.addListener(setupOffscreen);
-self.onmessage = e => {}
+self.onmessage = e => { }
 setupOffscreen();
 
 // NOTE: If you want to toggle the side panel from the extension's action button,
@@ -98,7 +98,7 @@ setupOffscreen();
 // chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
 //   .catch((error) => console.error(error));
 
-// @ts-ignore
+
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     // console.log(request);
     if (request.cmd === "toggleRecording") {
@@ -162,7 +162,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 let creating: Promise<void> | null;
 async function setupOffscreen() {
     let exist = false;
-    // @ts-ignore
+    
     let clientList = await clients.matchAll();
 
     for (const client of clientList) {
@@ -176,22 +176,26 @@ async function setupOffscreen() {
         if (creating) {
             await creating;
         } else {
-            // @ts-ignore
-            creating = chrome.offscreen.createDocument({
-                url: "src/offscreen/offscreen.html",
-                // @ts-ignore
-                reasons: [chrome.offscreen.Reason.USER_MEDIA],
-                justification: 'reason for needing the document'
-            });
-            await creating;
-            creating = null;
+            try {
+                
+                creating = chrome.offscreen.createDocument({
+                    url: "src/offscreen/offscreen.html",
+                    
+                    reasons: [chrome.offscreen.Reason.USER_MEDIA],
+                    justification: 'reason for needing the document'
+                });
+                await creating;
+                creating = null;
+            } catch (error) {
+                console.error("" + error);
+            }
         }
     }
 }
 
 async function sendMessageToOffscreenDocument(data: AppMessage) {
     // await setupOffscreen();
-    // @ts-ignore
+    
     await chrome.runtime.sendMessage(data);
 }
 
@@ -200,7 +204,7 @@ async function sendMessageToOffscreenDocument(data: AppMessage) {
 async function getCurrentTab() {
     let queryOptions = { active: true, lastFocusedWindow: true };
     // `tab` will either be a `tabs.Tab` instance or `undefined`.
-    // @ts-ignore
+    
     let [tab] = await chrome.tabs.query(queryOptions);
     return tab;
 }
@@ -222,7 +226,7 @@ const handleRecording = async (sendResponse: (response?: any) => void, mic: bool
             if (tab) {
                 // console.log(tab);
                 // Get a MediaStream for the active tab.
-                // @ts-ignore
+                
                 chrome.tabCapture.getMediaStreamId({
                     targetTabId: tab.id
                 }, (streamId: string) => {

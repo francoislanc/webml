@@ -11,7 +11,7 @@
 
     import Delete from "~icons/mdi/delete";
     import { exportDB } from "dexie-export-import";
-    // @ts-ignore
+    
     import download from "downloadjs";
     
     let transcriptions = liveQuery(() => db.images.reverse().toArray());
@@ -44,7 +44,6 @@
     }
 
     async function captureScreenshot() {
-        //@ts-ignore
         const response = await chrome.runtime.sendMessage({
             cmd: "initCapture",
             target: "background",
@@ -108,7 +107,7 @@
                 if (data && data instanceof ArrayBuffer) {
                     let id = await createImage(file.name, data);
 
-                    // @ts-ignore
+                    
                     const response = await chrome.runtime.sendMessage({
                         target: "background",
                         type: "imageToDecode",
