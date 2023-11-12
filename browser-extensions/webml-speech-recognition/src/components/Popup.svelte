@@ -59,6 +59,14 @@
     }
 
     async function record(with_mic: boolean) {
+        if (with_mic) {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+                console.log(err);
+                console.error(err);
+            }
+        }
         //@ts-ignore
         const response = await chrome.runtime.sendMessage({
             cmd: "toggleRecording",
