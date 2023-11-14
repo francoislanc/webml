@@ -159,43 +159,17 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 });
 
 // Clients api version
-let creating: Promise<void> | null;
 async function setupOffscreen() {
-    let exist = false;
-    
-    let clientList = await clients.matchAll();
-
-    for (const client of clientList) {
-        if (client.url.split('#')[0].endsWith("offscreen.html")) {
-            exist = true;
-            break;
-        }
-    }
-
-    if (!exist) {
-        if (creating) {
-            await creating;
-        } else {
-            try {
-                
-                creating = chrome.offscreen.createDocument({
-                    url: "src/offscreen/offscreen.html",
-                    
-                    reasons: [chrome.offscreen.Reason.USER_MEDIA],
-                    justification: 'reason for needing the document'
-                });
-                await creating;
-                creating = null;
-            } catch (error) {
-                console.error("" + error);
-            }
-        }
-    }
+    await chrome.offscreen.createDocument({
+        url: 'src/offscreen/offscreen.html',
+        reasons: [chrome.offscreen.Reason.USER_MEDIA],
+        justification: 'reason for needing the document',
+    }).catch(() => { });
 }
 
 async function sendMessageToOffscreenDocument(data: AppMessage) {
     // await setupOffscreen();
-    
+
     await chrome.runtime.sendMessage(data);
 }
 
@@ -204,7 +178,7 @@ async function sendMessageToOffscreenDocument(data: AppMessage) {
 async function getCurrentTab() {
     let queryOptions = { active: true, lastFocusedWindow: true };
     // `tab` will either be a `tabs.Tab` instance or `undefined`.
-    
+
     let [tab] = await chrome.tabs.query(queryOptions);
     return tab;
 }
@@ -226,7 +200,7 @@ const handleRecording = async (sendResponse: (response?: any) => void, mic: bool
             if (tab) {
                 // console.log(tab);
                 // Get a MediaStream for the active tab.
-                
+
                 chrome.tabCapture.getMediaStreamId({
                     targetTabId: tab.id
                 }, (streamId: string) => {

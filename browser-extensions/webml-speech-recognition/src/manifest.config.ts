@@ -44,5 +44,5 @@ export default defineManifest(async (env) => ({
     content_security_policy: {
         "extension_pages": "script-src 'self' 'wasm-unsafe-eval'"
     },
-    permissions: ["tabCapture", "offscreen", "tabs", "activeTab"] as chrome.runtime.ManifestPermissions[],
+    permissions: ["tabCapture", "offscreen", "activeTab"] as chrome.runtime.ManifestPermissions[],
 }));

@@ -48,7 +48,6 @@
             cmd: "initCapture",
             target: "background",
         });
-
         window.close();
     }
 

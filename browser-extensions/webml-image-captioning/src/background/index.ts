@@ -136,10 +136,11 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             })
 
             // ask to the tab to capture screen part
-            await chrome.tabs.sendMessage(tab.id, { cmd: "cropScreen" });
-            
+            if (tab.id != undefined) {
+                await chrome.tabs.sendMessage(tab.id, { cmd: "cropScreen" });
+            }
         })();
-        sendResponse({ responseCode: "nice", target: "offscreen" })
+        sendResponse({ responseCode: "nice", target: "popup" })
 
     } else if (request.type === "endCapture") {
 
@@ -196,37 +197,12 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
 });
 
-let creating: Promise<void> | null;
 async function setupOffscreen() {
-    let exist = false;
-    let clientList = await clients.matchAll();
-
-    for (const client of clientList) {
-        if (client.url.split('#')[0].endsWith("offscreen.html")) {
-            exist = true;
-            break;
-        }
-    }
-
-    if (!exist) {
-        if (creating) {
-            await creating;
-        } else {
-            try {
-                
-                creating = chrome.offscreen.createDocument({
-                    url: "src/offscreen/offscreen.html",
-                    
-                    reasons: [chrome.offscreen.Reason.USER_MEDIA],
-                    justification: 'reason for needing the document'
-                });
-                await creating;
-                creating = null;
-            } catch (error) {
-                console.error("" + error);
-            }
-        }
-    }
+    await chrome.offscreen.createDocument({
+        url: 'src/offscreen/offscreen.html',
+        reasons: [chrome.offscreen.Reason.WORKERS],
+        justification: 'keep service worker running',
+    }).catch(() => { });
 }
 
 // TODO : replace if possible with only activeTab permission
@@ -234,7 +210,7 @@ async function setupOffscreen() {
 async function getCurrentTab() {
     let queryOptions = { active: true, lastFocusedWindow: true };
     // `tab` will either be a `tabs.Tab` instance or `undefined`.
-    
+
     let [tab] = await chrome.tabs.query(queryOptions);
     return tab;
 }
