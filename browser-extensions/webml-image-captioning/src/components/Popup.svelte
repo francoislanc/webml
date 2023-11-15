@@ -51,7 +51,7 @@
         window.close();
     }
 
-    async function exportAudioDb() {
+    async function exportDb() {
         try {
             const blob = await exportDB(db, {
                 prettyJson: true,
@@ -147,7 +147,7 @@
                         <span>webml.io</span>
                     </a><button
                         class="chip variant-soft"
-                        on:click={async () => await exportAudioDb()}
+                        on:click={async () => await exportDb()}
                     >
                         <span><Download /></span>
                         <span>Export</span></button

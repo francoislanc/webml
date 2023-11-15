@@ -1,17 +1,4 @@
 <script lang="ts">
-    import { onMount } from "svelte";
-
-    onMount(() => {
-        chrome.runtime.onMessage.addListener((req, sender, res) => {
-            if (req.cmd === "cropScreen") {
-                // start crop screen
-                color = "rgba(255,255,255,0.5)";
-                width = 100;
-            }
-            res({"status": "ok"})
-        });
-    });
-
     let clientX: number | null = null;
     let clientY: number | null = null;
 
@@ -73,8 +60,19 @@
         });
     }
 
-    let color = "rgba(0,0,0,0.5)";
-    let width = 0;
+    function removeWidthCropScreen() {
+        let el = document.getElementById("webml-image-captioning-svg");
+        if (el) {
+            el.style.width = "0vw";
+        }
+    }
+
+    function changeBackgroundCropScreen() {
+        let el = document.getElementById("webml-image-captioning-svg");
+        if (el) {
+            el.style.backgroundColor = "rgba(0,0,0,0.5)";
+        }
+    }
 
     function handleMousemove(e: MouseEvent) {
         // console.log(e);
@@ -94,7 +92,7 @@
             clicked = !clicked;
             clientXBegin = clientX;
             clientYBegin = clientY;
-            color = "rgba(0,0,0,0.5)";
+            changeBackgroundCropScreen();
         } else {
             clicked = !clicked;
             clientXEnd = clientX;
@@ -102,6 +100,7 @@
 
             // clip image
             if (clientXBegin && clientYBegin && clientXEnd && clientYEnd) {
+
                 let msg = {
                     type: "endCapture",
                     area: {
@@ -112,6 +111,13 @@
                     },
                     dpr: devicePixelRatio,
                 };
+
+                removeWidthCropScreen();
+                clientXBegin = null;
+                clientYBegin = null;
+                clientXEnd = null;
+                clientYEnd = null;
+                
                 const response = await chrome.runtime.sendMessage(msg);
 
                 if (response.args) {
@@ -124,18 +130,11 @@
                         response.args[4]
                     );
 
-                    
                     const response2 = await chrome.runtime.sendMessage({
                         target: "background",
                         type: "dataUrlToDecode",
                         data: croppedDataUrl,
                     });
-                    color = "rgba(0,0,0,0.5)";
-                    width = 0;
-                    clientXBegin = null;
-                    clientYBegin = null;
-                    clientXEnd = null;
-                    clientYEnd = null;
                 }
             }
         }
@@ -146,7 +145,12 @@
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <svg
-    style="background-color: {color}; width: {width}%"
+    id="webml-image-captioning-svg"
+    style="background-color: rgba(255,255,255,0.5); width: 100vw;     position: absolute;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    height: 100vh;"
     on:mousemove={handleMousemove}
     on:click={async () => await onSVGClick()}
 >
@@ -163,8 +167,17 @@
         />
     {:else}
         <switch>
-            <foreignObject x="40%" y="40%" width="200" height="200">
-                <p class="heavy">
+            <foreignObject
+                x="40%"
+                y="40%"
+                width="250"
+                height="200"
+                style="pointer-events: none; text-align:center;"
+            >
+                <p
+                    style=" font: bold 30px sans-serif;
+                color: black;"
+                >
                     Click to start the screenshot area selection
                 </p>
             </foreignObject>
@@ -173,22 +186,3 @@
         </switch>
     {/if}
 </svg>
-
-<style>
-    svg {
-        position: fixed;
-        z-index: 1;
-        top: 0;
-        left: 0;
-        height: 100%;
-    }
-
-    foreignObject {
-        pointer-events: none;
-    }
-
-    .heavy {
-        font: bold 30px sans-serif;
-        color: black;
-    }
-</style>

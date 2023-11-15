@@ -1,6 +1,6 @@
 import init, { Model } from "../webml/blip";
 import { ImageSource, Status, db } from "../db";
-import type { AppMessage } from "../messages";
+import contentScript from '../content/index.ts?script';
 
 const blip_image_quantized_q4k = {
     base_url: "https://huggingface.co/lmz/candle-blip/resolve/main/",
@@ -69,6 +69,9 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(setupOffscreen);
 self.onmessage = e => { }
 setupOffscreen();
+/*const keepAlive = () => setInterval(chrome.runtime.getPlatformInfo, 20e3);
+chrome.runtime.onStartup.addListener(keepAlive);
+keepAlive();*/
 
 
 
@@ -121,6 +124,13 @@ export const blobToData = (
     });
 };
 
+function triggerCropScreen() {
+    let el = document.getElementById("webml-image-captioning-svg");
+    if (el) {
+        el.style.width = "100vw";
+        el.style.backgroundColor = "rgba(255,255,255,0.5)";
+    }
+}
 
 let captureImageTab: string;
 let captureTabTitle: string | undefined;
@@ -135,9 +145,16 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 captureImageTab = image;
             })
 
-            // ask to the tab to capture screen part
             if (tab.id != undefined) {
-                await chrome.tabs.sendMessage(tab.id, { cmd: "cropScreen" });
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id, allFrames: false },
+                    files: [contentScript],
+                  });
+
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id, allFrames: false },
+                    func: triggerCropScreen,
+                  });
             }
         })();
         sendResponse({ responseCode: "nice", target: "popup" })

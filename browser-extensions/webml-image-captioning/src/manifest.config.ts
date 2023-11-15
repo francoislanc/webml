@@ -22,12 +22,12 @@ export default defineManifest(async (env) => ({
         "48": "src/assets/icons/icon-48.png",
         "128": "src/assets/icons/icon-128.png",
     },
-    content_scripts: [
+    /*content_scripts: [
         {
-            matches: ["<all_urls>"],
+            matches: [],
             js: ["src/content/index.ts"],
         },
-    ],
+    ],*/
     background: {
         service_worker: "src/background/index.ts",
     },
