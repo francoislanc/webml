@@ -50,5 +50,5 @@ export default defineManifest(async (env) => ({
     content_security_policy: {
         "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; connect-src https://huggingface.co https://*.huggingface.co;"
     },
-    permissions: ["scripting", "tabCapture", "offscreen", "activeTab"] as chrome.runtime.ManifestPermissions[],
+    permissions: ["scripting", "offscreen", "activeTab"] as chrome.runtime.ManifestPermissions[],
 }));
