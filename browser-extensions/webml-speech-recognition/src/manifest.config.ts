@@ -42,7 +42,7 @@ export default defineManifest(async (env) => ({
         },
     },
     content_security_policy: {
-        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; connect-src https://huggingface.co https://*.huggingface.co;"
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co; object-src 'self';"
     },
     permissions: ["tabCapture", "offscreen", "activeTab"] as chrome.runtime.ManifestPermissions[],
 }));
