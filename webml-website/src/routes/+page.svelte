@@ -1,7 +1,10 @@
 <div class="container h-full mx-auto flex justify-center items-center">
 	<div class="space-y-5">
 		<div class="w-full grid grid-cols-2 gap-4">
-			<a class="card bg-initial card-hover overflow-hidden" href="#"
+			<a
+				class="card bg-initial card-hover overflow-hidden"
+				target="_blank"
+				href="https://chromewebstore.google.com/detail/webml-speech-recognition/dehgnbaadcebmfiajnepfpjjmahkobka?hl=fr&utm_source=ext_sidebar"
 				><header>
 					<img
 						src="webml-speech-recognition-screenshot.png"
@@ -15,7 +18,10 @@
 					</article>
 				</div>
 			</a>
-			<a class="card bg-initial card-hover overflow-hidden" href="#"
+			<a
+				class="card bg-initial card-hover overflow-hidden"
+				target="_blank"
+				href="https://chromewebstore.google.com/detail/webml-image-captioning/kcfoklabokmcakabibikiicbbidghcck?hl=fr&utm_source=ext_sidebar"
 				><header>
 					<img
 						src="webml-image-captioning-screenshot.png"
