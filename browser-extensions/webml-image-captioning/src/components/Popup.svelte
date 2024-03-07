@@ -8,12 +8,17 @@
     import Folder from "~icons/mdi/folder";
     import LinkVariant from "~icons/mdi/link-variant";
     import GoogleChrome from "~icons/mdi/google-chrome";
+    import { onMount } from "svelte";
 
     import Delete from "~icons/mdi/delete";
     import { exportDB } from "dexie-export-import";
-    
+
     import download from "downloadjs";
-    
+    import {
+        ERROR_IMAGE_CAPTIONING_TIMEOUT,
+        IMAGE_CAPTIONING_TIMEOUT_MS,
+    } from "../constants";
+
     let transcriptions = liveQuery(() => db.images.reverse().toArray());
     /*let transcriptions = [
         {
@@ -59,7 +64,7 @@
             download(
                 blob,
                 "webml-image-captioning-export.json",
-                "application/json"
+                "application/json",
             );
         } catch (error) {
             console.error("" + error);
@@ -67,7 +72,7 @@
     }
 
     export const blobToData = (
-        blob: Blob
+        blob: Blob,
     ): Promise<string | ArrayBuffer | null> => {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -106,7 +111,6 @@
                 if (data && data instanceof ArrayBuffer) {
                     let id = await createImage(file.name, data);
 
-                    
                     const response = await chrome.runtime.sendMessage({
                         target: "background",
                         type: "imageToDecode",
@@ -125,6 +129,30 @@
             await db.images.delete(id);
         }
     }
+
+    onMount(() => {
+        const interval = setInterval(async () => {
+            const imageCaptioningTooLong = await db.images
+                .where("status")
+                .equals(Status.decoding)
+                .and(
+                    (item) =>
+                        item.created <
+                        new Date(Date.now() - IMAGE_CAPTIONING_TIMEOUT_MS),
+                )
+                .toArray();
+            for (let i = 0; i < imageCaptioningTooLong.length; i++) {
+                await db.images.update(imageCaptioningTooLong[i].id, {
+                    caption: ERROR_IMAGE_CAPTIONING_TIMEOUT,
+                    status: Status.failed,
+                });
+            }
+
+        }, 5000);
+        return () => {
+            clearInterval(interval);
+        };
+    });
 </script>
 
 <div class="container mx-auto">
@@ -225,7 +253,7 @@
                                                 </p>
                                             </div>
                                         {:else if tr.status === Status.failed}
-                                            <p>X</p>
+                                            <p>{tr.caption}</p>
                                         {/if}
                                     </section>
                                     <hr class="opacity-50" />
@@ -250,7 +278,7 @@
                                                         class="btn-icon btn-icon-sm variant-soft"
                                                         on:click={async () =>
                                                             await deleteImage(
-                                                                tr.id
+                                                                tr.id,
                                                             )}
                                                         ><Delete /></button
                                                     >

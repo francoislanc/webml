@@ -1,6 +1,7 @@
 import init, { Model } from "../webml/blip";
 import { ImageSource, Status, db } from "../db";
 import contentScript from '../content/index.ts?script';
+import { ERROR_TRANSCRIPTION_EXCEPTION } from "../constants";
 
 const blip_image_quantized_q4k = {
     base_url: "https://huggingface.co/lmz/candle-blip/resolve/main/",
@@ -149,12 +150,12 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 await chrome.scripting.executeScript({
                     target: { tabId: tab.id, allFrames: false },
                     files: [contentScript],
-                  });
+                });
 
                 await chrome.scripting.executeScript({
                     target: { tabId: tab.id, allFrames: false },
                     func: triggerCropScreen,
-                  });
+                });
             }
         })();
         sendResponse({ responseCode: "nice", target: "popup" })
@@ -194,17 +195,27 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 if (decoder) {
 
                     let startTime = performance.now();
-                    const caption = decoder.generate_caption_from_image(imageArrayU8);
-                    let endTime = performance.now();
+                    try {
+                        const caption = decoder.generate_caption_from_image(imageArrayU8);
+                        let endTime = performance.now();
 
-                    let timeDiff = endTime - startTime; //in ms
-                    // strip the ms
-                    timeDiff /= 1000;
-                    let seconds = Math.round(timeDiff);
+                        let timeDiff = endTime - startTime; //in ms
+                        // strip the ms
+                        timeDiff /= 1000;
+                        let seconds = Math.round(timeDiff);
 
-                    await db.images.update(imageId, { caption: caption, status: Status.decoded })
+                        await db.images.update(imageId, { caption: caption, status: Status.decoded })
+
+                    } catch (error) {
+                        let errorMsg = ERROR_TRANSCRIPTION_EXCEPTION;
+                        if (error instanceof Error) {
+                            errorMsg = `${ERROR_TRANSCRIPTION_EXCEPTION} (${error.message})`
+                        }
+                        await db.images.update(imageId, { caption: errorMsg, status: Status.failed })
+                    }
+
                 } else {
-                    await db.images.update(imageId, { caption: "X", status: Status.failed })
+                    await db.images.update(imageId, { caption: ERROR_TRANSCRIPTION_EXCEPTION, status: Status.failed })
                 }
 
             }
