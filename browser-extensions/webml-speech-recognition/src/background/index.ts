@@ -1,6 +1,7 @@
 import init, { Decoder } from "../webml/whisper";
 import { Status, db } from "../db";
 import type { AppMessage } from "../messages";
+import { ERROR_TRANSCRIPTION_EXCEPTION } from "../constants";
 
 const tiny_quantized_q80 = {
     base_url: "https://huggingface.co/lmz/candle-whisper/resolve/main/",
@@ -77,7 +78,7 @@ async function initDecoder() {
 
 let decoder: Decoder | undefined = undefined;
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
 
     (async () => {
         await init()
@@ -136,19 +137,31 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 if (decoder) {
 
                     // let startTime = performance.now();
-                    const segments = decoder.decode(audioArrayU8);
-                    // let endTime = performance.now();
+                    try {
+                        
+                        // console.log("start long operation")
+                        // await new Promise(r => setTimeout(r, 120000))
+                        // console.log("long operation done")
+                        const segments = decoder.decode(audioArrayU8);
+                        // let endTime = performance.now();
 
-                    // let timeDiff = endTime - startTime; //in ms
-                    // strip the ms
-                    // timeDiff /= 1000;
-                    // let seconds = Math.round(timeDiff);
-                    // console.log(seconds + " seconds");
+                        // let timeDiff = endTime - startTime; //in ms
+                        // strip the ms
+                        // timeDiff /= 1000;
+                        // let seconds = Math.round(timeDiff);
+                        // console.log(seconds + " seconds");
 
-                    const jsonSegments = JSON.parse(segments)
-                    await db.audios.update(audioId, { transcription: jsonSegments[0]["dr"]["text"], status: Status.transcribed })
+                        const jsonSegments = JSON.parse(segments)
+                        await db.audios.update(audioId, { transcription: jsonSegments[0]["dr"]["text"], status: Status.transcribed })
+                    } catch (error) {
+                        let errorMsg = ERROR_TRANSCRIPTION_EXCEPTION;
+                        if (error instanceof Error) {
+                            errorMsg = `${ERROR_TRANSCRIPTION_EXCEPTION} (${error.message})`
+                        }
+                        await db.audios.update(audioId, { transcription: errorMsg, status: Status.transcription_failed })
+                    }
                 } else {
-                    await db.audios.update(audioId, { transcription: "X", status: Status.transcription_failed })
+                    await db.audios.update(audioId, { transcription: ERROR_TRANSCRIPTION_EXCEPTION, status: Status.transcription_failed })
                 }
 
             }

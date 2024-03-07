@@ -38,7 +38,7 @@ async function updateAudio(id: string, content: ArrayBuffer) {
 }
 
 function render() {
-    
+
     chrome.runtime.onMessage.addListener(async (message) => {
         if (message.target === "offscreen") {
             switch (message.type) {
@@ -108,7 +108,7 @@ function render() {
                 // let url = URL.createObjectURL(wavBlob)
                 // window.open(url, "_blank");
 
-                
+
                 chrome.runtime.sendMessage({
                     target: 'background',
                     type: 'audioWav',
@@ -144,7 +144,6 @@ function render() {
 
         const mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
-                
                 mandatory: {
                     chromeMediaSource: "tab",
                     chromeMediaSourceId: streamId
@@ -185,7 +184,7 @@ function render() {
             // let url = URL.createObjectURL(wavBlob)
             // window.open(url, "_blank");
 
-            
+
             chrome.runtime.sendMessage({
                 target: 'background',
                 type: 'audioWav',

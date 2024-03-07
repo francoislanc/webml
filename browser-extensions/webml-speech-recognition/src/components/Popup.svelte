@@ -8,11 +8,13 @@
     import Folder from "~icons/mdi/folder";
     import LinkVariant from "~icons/mdi/link-variant";
     import GoogleChrome from "~icons/mdi/google-chrome";
+    import { onMount } from "svelte";
 
     import Delete from "~icons/mdi/delete";
     import { exportDB } from "dexie-export-import";
-    
+
     import download from "downloadjs";
+    import { ERROR_TRANSCRIPTION_TIMEOUT, TRANSCRIPTION_TIMEOUT_MS } from "../constants";
 
     let transcriptions = liveQuery(() => db.audios.reverse().toArray());
     /*let transcriptions = [
@@ -62,16 +64,28 @@
         if (with_mic) {
             try {
                 await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                const response = await chrome.runtime.sendMessage({
+                    cmd: "toggleRecording",
+                    data: with_mic,
+                    target: "background",
+                });
             } catch (err) {
                 console.log(err);
                 console.error(err);
+
+                chrome.tabs.create({
+                    url: chrome.runtime.getURL("src/options/options.html"),
+                    active: true,
+                });
             }
+        } else {
+            const response = await chrome.runtime.sendMessage({
+                cmd: "toggleRecording",
+                data: with_mic,
+                target: "background",
+            });
         }
-        const response = await chrome.runtime.sendMessage({
-            cmd: "toggleRecording",
-            data: with_mic,
-            target: "background",
-        });
     }
 
     async function deleteTranscription(id: number | undefined) {
@@ -88,7 +102,7 @@
             download(
                 blob,
                 "webml-speech-recognition-export.json",
-                "application/json"
+                "application/json",
             );
         } catch (error) {
             console.error("" + error);
@@ -96,7 +110,7 @@
     }
 
     export const blobToData = (
-        blob: Blob
+        blob: Blob,
     ): Promise<string | ArrayBuffer | null> => {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -135,7 +149,6 @@
                 if (data && data instanceof ArrayBuffer) {
                     let id = await createFileAudio(file.name, data);
 
-                    
                     const response = await chrome.runtime.sendMessage({
                         target: "background",
                         type: "audioWav",
@@ -156,6 +169,29 @@
         let output = input.replaceAll(regex, "").replaceAll(regex2, "");
         return output;
     };
+
+    onMount(() => {
+        const interval = setInterval(async () => {
+            const transcriptionTooLong = await db.audios
+                .where("status")
+                .equals(Status.transcribing)
+                .and(
+                    (item) =>
+                        item.created <
+                        new Date(Date.now() - TRANSCRIPTION_TIMEOUT_MS),
+                )
+                .toArray();
+            for (let i = 0; i < transcriptionTooLong.length; i++) {
+                await db.audios.update(transcriptionTooLong[i].id, {
+                    transcription: ERROR_TRANSCRIPTION_TIMEOUT,
+                    status: Status.transcription_failed,
+                });
+            }
+        }, 5000);
+        return () => {
+            clearInterval(interval);
+        };
+    });
 </script>
 
 <div class="container mx-auto">
@@ -276,7 +312,7 @@
                                             <div>
                                                 <p class="text-justify">
                                                     {cleanTranscription(
-                                                        tr.transcription
+                                                        tr.transcription,
                                                     )}
                                                 </p>
                                             </div>
@@ -304,7 +340,7 @@
                                             >
                                             <ProgressBar />
                                         {:else if tr.status === Status.transcription_failed}
-                                            <p>X</p>
+                                            <p>{tr.transcription}</p>
                                         {/if}
                                     </section>
                                     <hr class="opacity-50" />
@@ -329,7 +365,7 @@
                                                         class="btn-icon btn-icon-sm variant-soft"
                                                         on:click={async () =>
                                                             await deleteTranscription(
-                                                                tr.id
+                                                                tr.id,
                                                             )}
                                                         ><Delete /></button
                                                     >

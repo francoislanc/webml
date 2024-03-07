@@ -25,10 +25,10 @@ export default defineManifest(async (env) => ({
     background: {
         service_worker: "src/background/index.ts",
     },
-    /*options_ui: {
+    options_ui: {
         page: "src/options/options.html",
         open_in_tab: false,
-    },*/
+    },
     /*side_panel: {
         default_path: "src/sidepanel/sidepanel.html",
     },*/
