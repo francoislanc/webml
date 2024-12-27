@@ -2,7 +2,7 @@
   "name": "webml-speech-recognition",
   "description": "ML-powered speech recognition in your browser.",
   "private": true,
-  "version": "2.0.1",
+  "version": "2.0.2",
   "type": "module",
   "scripts": {
     "dev": "wxt",

@@ -1,12 +1,14 @@
-import { transcribe } from "../lib/transcribe";
+import { transcribe, initModelDummy } from "../lib/transcribe";
 import { onMessage, sendMessage } from "../lib/messaging";
-import { AudioSource, createFileAudio, db, Status } from "../lib/db";
+import { db, Status } from "../lib/db";
 export const ERROR_TRANSCRIPTION_EXCEPTION = "Audio decoding failed";
 export const ERROR_TRANSCRIPTION_TIMEOUT = "Transcription failed (timeout)";
 
 export const TRANSCRIPTION_TIMEOUT_MS = 60000;
 
-export default defineBackground(() => {});
+export default defineBackground(async () => {
+  await initModelDummy();
+});
 
 // TODO : replace if possible with only activeTab permission
 // But the issue is that I found it works only with browse.action which I am not able to trigger from the popup

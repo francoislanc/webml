@@ -1,4 +1,4 @@
-import { pipeline, env } from "@huggingface/transformers";
+import { pipeline, env, full } from "@huggingface/transformers";
 import { WaveFile } from "wavefile";
 
 // Skip initial check for local models, since we are not loading any local models.
@@ -21,6 +21,18 @@ class PipelineSingleton {
     return this.instance;
   }
 }
+
+export const initModelDummy = async () => {
+  let pipeline = await PipelineSingleton.getInstance((data) => {});
+
+  // Run model with dummy input to compile shaders
+  if (pipeline) {
+    await pipeline.model.generate({
+      input_features: full([1, 80, 3000], 0.0),
+      max_new_tokens: 1,
+    });
+  }
+};
 
 // Create generic classify function, which will be reused for the different types of events.
 export const transcribe = async (arrayBuffer) => {
