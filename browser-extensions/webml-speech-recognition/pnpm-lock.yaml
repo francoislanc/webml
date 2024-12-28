@@ -10,12 +10,6 @@ importers:
       "@huggingface/transformers":
         specifier: ^3.2.3
         version: 3.2.3
-      "@iconify-json/mdi":
-        specifier: ^1.2.2
-        version: 1.2.2
-      "@iconify/svelte":
-        specifier: ^4.1.0
-        version: 4.1.0(svelte@5.16.0)
       "@tsconfig/svelte":
         specifier: ^5.0.4
         version: 5.0.4
@@ -631,26 +625,6 @@ packages:
     resolution:
       {
         integrity: sha512-o7QZphrCH3a3m0kF/MaSNv3DMDZCpTifdZ9k4Lwl2n9QhY8JIGOOtZDVa+Wv2cqKU6iJm1SiCqDdZpo8H20c8g==,
-      }
-
-  "@iconify-json/mdi@1.2.2":
-    resolution:
-      {
-        integrity: sha512-84aznJXzfGdbOXGe8xB7E5uNAb7Yo5IABwTgq2X3kczb819qZeS9eL31bTVn7wJdCLK5ieaoUc2GTS3QYIkJ6g==,
-      }
-
-  "@iconify/svelte@4.1.0":
-    resolution:
-      {
-        integrity: sha512-6oLonIDZHXPcQa9ZKbJocaOUMOV+ALeGPVDfex/lwdlHRNUxtJzI6pu121SaoVoXpRGSAYXB/VCv/MuYzCjn5w==,
-      }
-    peerDependencies:
-      svelte: ">4.0.0"
-
-  "@iconify/types@2.0.0":
-    resolution:
-      {
-        integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==,
       }
 
   "@img/sharp-darwin-arm64@0.33.5":
@@ -5169,17 +5143,6 @@ snapshots:
       onnxruntime-node: 1.20.1
       onnxruntime-web: 1.21.0-dev.20241205-d27fecd3d3
       sharp: 0.33.5
-
-  "@iconify-json/mdi@1.2.2":
-    dependencies:
-      "@iconify/types": 2.0.0
-
-  "@iconify/svelte@4.1.0(svelte@5.16.0)":
-    dependencies:
-      "@iconify/types": 2.0.0
-      svelte: 5.16.0
-
-  "@iconify/types@2.0.0": {}
 
   "@img/sharp-darwin-arm64@0.33.5":
     optionalDependencies:

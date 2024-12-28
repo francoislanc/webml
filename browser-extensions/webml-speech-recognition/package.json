@@ -16,8 +16,6 @@
   },
   "devDependencies": {
     "@huggingface/transformers": "^3.2.3",
-    "@iconify-json/mdi": "^1.2.2",
-    "@iconify/svelte": "^4.1.0",
     "@tsconfig/svelte": "^5.0.4",
     "@types/chrome": "^0.0.280",
     "@types/downloadjs": "^1.4.6",

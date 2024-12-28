@@ -10,7 +10,7 @@ export default defineConfig({
     default_locale: "en",
     content_security_policy: {
       extension_pages:
-        "script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net https://api.iconify.design; object-src 'self';",
+        "script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net; object-src 'self';",
     },
   },
 });
