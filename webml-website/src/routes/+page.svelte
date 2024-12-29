@@ -85,7 +85,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="card lg:card-side bg-base-100 shadow-xl">
+		<div class="card card-side bg-base-100 shadow-xl">
 			<figure  class="max-w-64 max-h-64">
 				<img
 					src="/webml-image-captioning-screenshot-{oppositeTheme}.png"
