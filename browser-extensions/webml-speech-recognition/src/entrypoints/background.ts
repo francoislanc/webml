@@ -1,13 +1,43 @@
-import { transcribe, initModelDummy } from "../lib/transcribe";
+import { transcribe, PipelineSingleton } from "../lib/transcribe";
+import { full, ProgressInfo } from "@huggingface/transformers";
 import { onMessage, sendMessage } from "../lib/messaging";
-import { db, Status } from "../lib/db";
+import { db, Status, updateModel } from "../lib/db";
 export const ERROR_TRANSCRIPTION_EXCEPTION = "Audio decoding failed";
 export const ERROR_TRANSCRIPTION_TIMEOUT = "Transcription failed (timeout)";
 
 export const TRANSCRIPTION_TIMEOUT_MS = 60000;
 
+export const sleep = async (ms: number): Promise<void> => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 export default defineBackground(async () => {
-  await initModelDummy();
+  await updateModel(
+    PipelineSingleton.model,
+    false,
+    false,
+    false,
+    "Initialization"
+  );
+
+  await updateModel(PipelineSingleton.model, true, false, false, "Downloading");
+  let pipeline = await PipelineSingleton.getInstance(
+    async (data: ProgressInfo) => {}
+  );
+  // simulate slow downloading
+  // await sleep(10000);
+
+  // Run model with dummy input to compile shaders
+  if (pipeline) {
+    await updateModel(PipelineSingleton.model, true, false, false, "Running");
+    await pipeline.model.generate({
+      input_features: full([1, 80, 3000], 0.0),
+      max_new_tokens: 1,
+    });
+    // simulate slow execution
+    // await sleep(10000);
+    await updateModel(PipelineSingleton.model, false, true, false, "");
+  }
 });
 
 // TODO : replace if possible with only activeTab permission
@@ -80,7 +110,7 @@ onMessage("startRecord", async (message) => {
             streamId: streamId,
             tabTitle: tab.title ?? "",
           });
-        },
+        }
       );
     }
   }

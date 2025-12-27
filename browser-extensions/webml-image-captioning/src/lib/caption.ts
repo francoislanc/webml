@@ -4,6 +4,7 @@ import {
   full,
   RawImage,
   AutoProcessor,
+  ProgressCallback,
 } from "@huggingface/transformers";
 
 // Skip initial check for local models, since we are not loading any local models.
@@ -13,12 +14,12 @@ env.allowLocalModels = false;
 // See https://github.com/microsoft/onnxruntime/issues/14445 for more information.
 env.backends.onnx.wasm.numThreads = 1;
 
-class PipelineSingleton {
+export class PipelineSingleton {
   static task = "image-to-text";
   static model = "Xenova/vit-gpt2-image-captioning";
   static instance = null;
 
-  static async getInstance(progress_callback = null) {
+  static async getInstance(progress_callback?: ProgressCallback) {
     if (this.instance === null) {
       this.instance = pipeline(this.task, this.model, { progress_callback });
     }
@@ -31,7 +32,7 @@ class AutoProcessorSingleton {
   static model = "Xenova/vit-gpt2-image-captioning";
   static instance = null;
 
-  static async getInstance(progress_callback = null) {
+  static async getInstance(progress_callback?: ProgressCallback) {
     if (this.instance === null) {
       this.instance = await AutoProcessor.from_pretrained(this.model, {});
     }

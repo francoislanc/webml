@@ -35,15 +35,26 @@ export interface AppSetting {
   value: string;
 }
 
+export interface AppModel {
+  name: string;
+  isLoading: boolean;
+  isLoaded: boolean;
+  error: boolean;
+  currentStep: string;
+  created: Date;
+}
+
 export class AppDexie extends Dexie {
   audios!: Table<AppAudio>;
   settings!: Table<AppSetting>;
+  models!: Table<AppModel>;
 
   constructor() {
     super("webml-speech-recognition-db");
-    this.version(1).stores({
+    this.version(2).stores({
       audios: "++id, audio, tabTitle, transcription, status, source, created", // Primary key and indexed props
       settings: "++name, value",
+      models: "++name, isLoading, isLoaded, error, currentStep, created",
     });
   }
 }
@@ -78,7 +89,7 @@ export async function createFileAudio(title: string, data: ArrayBuffer) {
 
 export async function createEmptyAudio(
   tabTitle: string,
-  withMic: boolean,
+  withMic: boolean
 ): Promise<string> {
   // Add the new transcription!
   const id: string = await db.audios.add({
@@ -89,6 +100,38 @@ export async function createEmptyAudio(
     created: new Date(),
   });
   return id;
+}
+
+export async function updateModel(
+  name: string,
+  isLoading: boolean,
+  isLoaded: boolean,
+  error: boolean,
+  currentStep: string
+) {
+  try {
+    let model = await db.models.get(name);
+    if (model == undefined) {
+      const key: string = await db.models.add({
+        name: name,
+        isLoading: isLoading,
+        isLoaded: isLoaded,
+        error: error,
+        currentStep: currentStep,
+        created: new Date(),
+      });
+    } else {
+      await db.models.update(name, {
+        name: name,
+        isLoading: isLoading,
+        isLoaded: isLoaded,
+        error: error,
+        currentStep: currentStep,
+      });
+    }
+  } catch (error) {
+    console.log(`Failed to update : ${error}`);
+  }
 }
 
 export async function updateAudio(id: string, content: ArrayBuffer) {

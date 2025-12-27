@@ -3,13 +3,16 @@
   import { createFileAudio, db, exportAudioDb, Status } from "../../lib/db";
   import logo from "../../assets/webml-speech-reco.svg";
   import Transcriptions from "../../lib/Transcriptions.svelte";
+  import Loading from "./Loading.svelte";
   import { liveQuery } from "dexie";
   import { blobToData } from "../../utils/dataConversion";
   import { i18n } from "#i18n";
+  import { PipelineSingleton } from "@/lib/transcribe";
 
   let theme: string;
   let inputFileField: any;
 
+  let model = liveQuery(() => db.models.get(PipelineSingleton.model));
   let transcriptions = liveQuery(() => db.audios.reverse().toArray());
 
   let tabRecordingsInProgess = liveQuery(async () => {
@@ -123,89 +126,95 @@
   </div>
   <div class="max-w-screen-xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
     <div class="grid grid-cols-1 gap-y-8">
-      <div
-        class="mx-auto max-w-lg text-center lg:mx-0 ltr:lg:text-left rtl:lg:text-right"
-      >
-        <div class="flex mt-4 justify-center space-x-1">
-          <button
-            disabled={$transcriptionsInProgress || $micRecordingsInProgess}
-            on:click={async () => await toggleFunction(false)}
-            class={$tabRecordingsInProgess ? " btn btn-active" : "btn"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              ><path
-                fill="currentColor"
-                d="m12 20l3.46-6h-.01c.34-.6.55-1.27.55-2c0-1.2-.54-2.27-1.38-3h4.79c.38.93.59 1.94.59 3a8 8 0 0 1-8 8m-8-8c0-1.46.39-2.82 1.07-4l3.47 6h.01c.69 1.19 1.95 2 3.45 2c.45 0 .88-.09 1.29-.23l-2.4 4.14C7 19.37 4 16.04 4 12m11 0a3 3 0 0 1-3 3a3 3 0 0 1-3-3a3 3 0 0 1 3-3a3 3 0 0 1 3 3m-3-8a7.98 7.98 0 0 1 6.92 4H12c-1.94 0-3.55 1.38-3.92 3.21L5.7 7.08A7.98 7.98 0 0 1 12 4m0-2A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10A10 10 0 0 0 12 2"
-              /></svg
-            >
-            <span>From tab</span>
-          </button>
-
-          <input
-            type="file"
-            id="files"
-            class="hidden"
-            bind:this={inputFileField}
-            on:change={async (e) => onFileChangeHandler(e)}
-          />
-          {#if $transcriptionsInProgress || $tabRecordingsInProgess || $micRecordingsInProgess}
-            <label for="files" class="btn btn-disabled"
-              ><svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                ><path
-                  fill="currentColor"
-                  d="M13 9V3.5L18.5 9M6 2c-1.11 0-2 .89-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
-                /></svg
-              > From file</label
-            >
-          {:else}
-            <label for="files" class="btn"
-              ><svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                ><path
-                  fill="currentColor"
-                  d="M13 9V3.5L18.5 9M6 2c-1.11 0-2 .89-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
-                /></svg
-              > From file</label
-            >
-          {/if}
-          <button
-            disabled={$transcriptionsInProgress || $tabRecordingsInProgess}
-            on:click={async () => await toggleFunction(true)}
-            class={$micRecordingsInProgess ? " btn btn-active" : "btn"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              ><path
-                fill="currentColor"
-                d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3m7 9c0 3.53-2.61 6.44-6 6.93V21h-2v-3.07c-3.39-.49-6-3.4-6-6.93h2a5 5 0 0 0 5 5a5 5 0 0 0 5-5z"
-              /></svg
-            >
-            <span>From mic</span>
-          </button>
+      {#if $model == undefined || !$model.isLoaded}
+        <div class="grid grid-cols-1 gap-4 justify-items-center">
+          <Loading model={$model} />
         </div>
-      </div>
-      <div class="grid grid-cols-1 gap-4 justify-items-center">
-        <Transcriptions
-          deleteTranscription={async (id: number) => {
-            await db.audios.delete(id);
-          }}
-          transcriptions={$transcriptions}
-        />
-      </div>
+      {:else}
+        <div
+          class="mx-auto max-w-lg text-center lg:mx-0 ltr:lg:text-left rtl:lg:text-right"
+        >
+          <div class="flex mt-4 justify-center space-x-1">
+            <button
+              disabled={$transcriptionsInProgress || $micRecordingsInProgess}
+              on:click={async () => await toggleFunction(false)}
+              class={$tabRecordingsInProgess ? " btn btn-active" : "btn"}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                ><path
+                  fill="currentColor"
+                  d="m12 20l3.46-6h-.01c.34-.6.55-1.27.55-2c0-1.2-.54-2.27-1.38-3h4.79c.38.93.59 1.94.59 3a8 8 0 0 1-8 8m-8-8c0-1.46.39-2.82 1.07-4l3.47 6h.01c.69 1.19 1.95 2 3.45 2c.45 0 .88-.09 1.29-.23l-2.4 4.14C7 19.37 4 16.04 4 12m11 0a3 3 0 0 1-3 3a3 3 0 0 1-3-3a3 3 0 0 1 3-3a3 3 0 0 1 3 3m-3-8a7.98 7.98 0 0 1 6.92 4H12c-1.94 0-3.55 1.38-3.92 3.21L5.7 7.08A7.98 7.98 0 0 1 12 4m0-2A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10A10 10 0 0 0 12 2"
+                /></svg
+              >
+              <span>From tab</span>
+            </button>
+
+            <input
+              type="file"
+              id="files"
+              class="hidden"
+              bind:this={inputFileField}
+              on:change={async (e) => onFileChangeHandler(e)}
+            />
+            {#if $transcriptionsInProgress || $tabRecordingsInProgess || $micRecordingsInProgess}
+              <label for="files" class="btn btn-disabled"
+                ><svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  ><path
+                    fill="currentColor"
+                    d="M13 9V3.5L18.5 9M6 2c-1.11 0-2 .89-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
+                  /></svg
+                > From file</label
+              >
+            {:else}
+              <label for="files" class="btn"
+                ><svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  ><path
+                    fill="currentColor"
+                    d="M13 9V3.5L18.5 9M6 2c-1.11 0-2 .89-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
+                  /></svg
+                > From file</label
+              >
+            {/if}
+            <button
+              disabled={$transcriptionsInProgress || $tabRecordingsInProgess}
+              on:click={async () => await toggleFunction(true)}
+              class={$micRecordingsInProgess ? " btn btn-active" : "btn"}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                ><path
+                  fill="currentColor"
+                  d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3m7 9c0 3.53-2.61 6.44-6 6.93V21h-2v-3.07c-3.39-.49-6-3.4-6-6.93h2a5 5 0 0 0 5 5a5 5 0 0 0 5-5z"
+                /></svg
+              >
+              <span>From mic</span>
+            </button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 gap-4 justify-items-center">
+          <Transcriptions
+            deleteTranscription={async (id: number) => {
+              await db.audios.delete(id);
+            }}
+            transcriptions={$transcriptions}
+          />
+        </div>
+      {/if}
     </div>
   </div>
 </main>

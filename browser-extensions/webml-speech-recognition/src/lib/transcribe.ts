@@ -1,4 +1,9 @@
-import { pipeline, env, full } from "@huggingface/transformers";
+import {
+  pipeline,
+  env,
+  full,
+  ProgressCallback,
+} from "@huggingface/transformers";
 import { WaveFile } from "wavefile";
 
 // Skip initial check for local models, since we are not loading any local models.
@@ -8,12 +13,12 @@ env.allowLocalModels = false;
 // See https://github.com/microsoft/onnxruntime/issues/14445 for more information.
 env.backends.onnx.wasm.numThreads = 1;
 
-class PipelineSingleton {
+export class PipelineSingleton {
   static task = "automatic-speech-recognition";
   static model = "onnx-community/whisper-tiny_timestamped";
   static instance = null;
 
-  static async getInstance(progress_callback = null) {
+  static async getInstance(progress_callback?: ProgressCallback) {
     if (this.instance === null) {
       this.instance = pipeline(this.task, this.model, { progress_callback });
     }

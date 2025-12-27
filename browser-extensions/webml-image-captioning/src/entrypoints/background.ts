@@ -1,11 +1,36 @@
-import { initModelDummy, runModel } from "../lib/caption";
+import { PipelineSingleton, runModel } from "../lib/caption";
 import { onMessage } from "../lib/messaging";
-import { createImage, db, Status } from "../lib/db";
-import { RawImage } from "@huggingface/transformers";
+import { createImage, db, Status, updateModel } from "../lib/db";
+import { full, ProgressInfo, RawImage } from "@huggingface/transformers";
 export const ERROR_EXCEPTION = "Decoding failed";
 
 export default defineBackground(async () => {
-  await initModelDummy();
+  await updateModel(
+    PipelineSingleton.model,
+    false,
+    false,
+    false,
+    "Initialization"
+  );
+
+  await updateModel(PipelineSingleton.model, true, false, false, "Downloading");
+  let pipeline = await PipelineSingleton.getInstance(
+    async (data: ProgressInfo) => {}
+  );
+  // simulate slow downloading
+  // await sleep(10000);
+
+  // Run model with dummy input to compile shaders
+  if (pipeline) {
+    await updateModel(PipelineSingleton.model, true, false, false, "Running");
+    await pipeline.model.generate({
+      pixel_values: full([1, 3, 224, 224], 0.0),
+      max_new_tokens: 1,
+    });
+    // simulate slow execution
+    // await sleep(10000);
+    await updateModel(PipelineSingleton.model, false, true, false, "");
+  }
 });
 
 // TODO : replace if possible with only activeTab permission
@@ -26,7 +51,7 @@ async function runCaptionOnDbImage(id: string) {
         imageToCaption.rawImage.data,
         imageToCaption.rawImage.width,
         imageToCaption.rawImage.height,
-        imageToCaption.rawImage.channels,
+        imageToCaption.rawImage.channels
       );
       let result = await runModel(rawImage);
       await db.images.update(id, {
@@ -98,7 +123,7 @@ onMessage("rawImageToDecode", async (message) => {
   let id = await createImage(
     captureTabTitle ?? "untitled tab",
     message.data.resizedImage,
-    arrayBuffer,
+    arrayBuffer
   );
   await runCaptionOnDbImage(id);
   return true;
